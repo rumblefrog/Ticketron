@@ -7,6 +7,9 @@
 # Compiled Plugin
 *.smx
 
+# Bat
+*.bat
+
 # Precompiled Headers
 *.gch
 *.pch
