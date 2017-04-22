@@ -6,11 +6,18 @@
 #define PLUGIN_VERSION "0.01"
 
 #include <sourcemod>
+#include <morecolors_store>
 #undef REQUIRE_EXTENSIONS
 #include <SteamWorks>
 
 
 #pragma newdecls required
+
+#define Divider_Left "▬▬ι═══════ﺤ(̲̅ ̲̅(̲̅"
+#define Divider_Right ") ̲̅)-═══════ι▬▬";
+
+#define Divider_Success "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Success) ̲̅){grey}-═══════ι▬▬"
+#define Divider_Failure "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Failure) ̲̅){grey}-═══════ι▬▬"
 
 //<!-- Main -->
 Database hDB;
@@ -19,7 +26,9 @@ char g_cIP[64];
 char g_cHostname[128];
 char g_cBreed[32];
 
-int g_iPollingRate = 10;
+float g_fPollingRate = 10.0;
+
+Handle g_hPollingTimer;
 
 //<!--- ConVars --->
 ConVar cPollingRate;
@@ -73,6 +82,7 @@ public void OnPluginStart()
 	AutoExecConfig(true, "ticketron");
 	
 	RegAdminCmd("sm_ticket", CreateTicketCmd, 0, "Creates ticket");
+	RegAdminCmd("sm_handle", HandleTicketCmd, ADMFLAG_GENERIC, "Handles ticket");
 	
 	if (!SteamWorks_IsConnected())
 	{
@@ -83,11 +93,14 @@ public void OnPluginStart()
 	GetConVarString(FindConVar("hostname"), g_cHostname, sizeof g_cHostname);
 	
 	
-	g_iPollingRate = cPollingRate.IntValue;
+	g_fPollingRate = cPollingRate.FloatValue;
 	HookConVarChange(cPollingRate, OnConvarChanged);
 	
 	cBreed.GetString(g_cBreed, sizeof g_cBreed);
 	HookConVarChange(cBreed, OnConvarChanged);
+	
+	//TODO: Implement using IN clause
+	g_hPollingTimer = CreateTimer(g_fPollingRate, PollingTimer, _, TIMER_REPEAT);
 }
 
 public Action CreateTicketCmd(int client, int args)
@@ -96,12 +109,61 @@ public Action CreateTicketCmd(int client, int args)
 	
 	GetCmdArg(1, buffer, sizeof buffer);
 	
-	CreateTicket(client, buffer);
+	int response = CreateTicket(client, buffer);
+	
+	if (response == -1)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Error when creating the ticket. Please try again later.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+	} else
+	{
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Your Ticket ID: {chartreuse}%i{grey}.", response);
+		CReplyToCommand(client, "{lightseagreen}View Your Ticket Using {chartreuse}!ViewTicket #{grey}.");
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+	}
 	
 	return Plugin_Handled;
 }
 
-bool CreateTicket(int client, const char[] reason)
+public Action HandleTicketCmd(int client, int args)
+{
+	char buffer[16];
+	int ticket;
+	
+	GetCmdArg(1, buffer, sizeof buffer);
+	ticket = StringToInt(buffer);
+	
+	bool response = HandleTicket(client, ticket);
+	
+	if (!response)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. Please try again later.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+	} else
+	{
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Now Handling Ticket ID: {chartreuse}%i{grey}.", response);
+		CReplyToCommand(client, "{lightseagreen}Unhandle The Ticket Using {chartreuse}!UnhandleTicket #{grey}.");
+		CReplyToCommand(client, "{lightseagreen}View The Ticket Using {chartreuse}!ViewTicket #{grey}.");
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+	}
+	
+	return Plugin_Handled;
+
+}
+
+int CreateTicket(int client, const char[] reason)
 {
 	DBStatement Insert;
 	
@@ -122,13 +184,58 @@ bool CreateTicket(int client, const char[] reason)
 	Insert.BindString(5, Client_IP, false);
 	Insert.BindString(6, reason, false);
 	
-	return SQL_Execute(Insert);
+	if (!SQL_Execute(Insert))
+		return -1;
+	else
+		return SQL_GetInsertId(Insert);
+}
+
+bool HandleTicket(int client, int ticket)
+{
+	DBStatement Update, Select;
+	
+	char error[255], Client_Name[MAX_NAME_LENGTH], Client_SteamID64[32];
+	
+	Select = SQL_PrepareQuery(hDB, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = ?", error, sizeof error);
+	Select.BindInt(0, ticket, false);
+	
+	if(!SQL_Execute(Select))
+		return false;
+	else
+	{
+		SQL_FetchRow(Select);
+		
+		int handled = SQL_FetchInt(Select, 13);
+		
+		if (handled == 1)
+			return false;
+	}
+	
+	GetClientName(client, Client_Name, sizeof Client_Name);
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	
+	Update = SQL_PrepareQuery(hDB, "UPDATE `Ticketron_Tickets` SET `handler_name` = ?, `handler_steamid` = ?, `handled` = 1 WHERE `id` = ?", error, sizeof error);
+	
+	Update.BindString(0, Client_Name, false);
+	Update.BindString(1, Client_SteamID64, false);
+	Update.BindInt(2, ticket, false);
+	
+	return SQL_Execute(Update);
+}
+
+public Action PollingTimer(Handle timer)
+{
+
 }
 
 public void OnConvarChanged(ConVar convar, const char[] oldValue, const char[] newValue)
 {
 	if (convar == cPollingRate)
-		g_iPollingRate = cPollingRate.IntValue;
+	{
+		g_fPollingRate = cPollingRate.FloatValue;
+		KillTimer(g_hPollingTimer);
+		g_hPollingTimer = CreateTimer(g_fPollingRate, PollingTimer, _, TIMER_REPEAT);
+	}
 	if (convar == cBreed)
 		cBreed.GetString(g_cBreed, sizeof g_cBreed);
 }
