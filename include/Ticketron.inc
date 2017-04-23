@@ -8,11 +8,12 @@
 * Add a notification to database
 * 
 * @param ticket			Ticket ID
+* @param receiver       False for reporter, True for handler
 * @param format			Format
 * @param ...			Any additional formating data
 * @return				Last inserted ID, returns -1 if none
 */
-native int Ticketron_AddNotification(int ticket, const char[] format, any ...);
+native int Ticketron_AddNotification(int ticket, bool receiver, const char[] format, any ...);
 
 
 public SharedPlugin __pl_Ticketron =

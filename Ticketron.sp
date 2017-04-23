@@ -64,7 +64,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	//Tickets table must be created before others due to foreign key references	
 	char TicketsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Tickets` ( `id` INT NOT NULL AUTO_INCREMENT , `host` VARBINARY(16) NOT NULL , `hostname` VARCHAR(64) NOT NULL , `breed` VARCHAR(32) NOT NULL , `target_name` VARCHAR(32) NULL DEFAULT NULL , `target_steamid` VARCHAR(32) NULL DEFAULT NULL , `target_ip` VARBINARY(16) NULL DEFAULT NULL, `reporter_name` VARCHAR(32) NOT NULL , `reporter_steamid` VARCHAR(32) NOT NULL , `reporter_ip` VARBINARY(16) NOT NULL, `reporter_seed` TINYINT(1) NOT NULL, `reason` TEXT NOT NULL , `handler_name` VARCHAR(32) NULL DEFAULT NULL , `handler_steamid` VARCHAR(32) NULL DEFAULT NULL , `handled` TINYINT(1) NOT NULL DEFAULT '0' , `data` TEXT NULL DEFAULT NULL, `time_reported` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , `time_handled` TIMESTAMP NULL DEFAULT NULL , `time_closed` TIMESTAMP NULL DEFAULT NULL , `closed` TINYINT(1) NOT NULL DEFAULT '0' , PRIMARY KEY (`id`), INDEX (`breed`), INDEX (`handler_steamid`), INDEX (`handled`), INDEX (`target_steamid`), INDEX (`target_ip`), INDEX (`reporter_steamid`), INDEX (`reporter_ip`), INDEX(`reporter_seed`), INDEX (`closed`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	char RepliesCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Replies` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `replier_name` VARCHAR(32) NOT NULL , `replier_steamid` VARCHAR(32) NOT NULL , `message` LONGTEXT NOT NULL , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`replier_steamid`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
-	char NotificationsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Notifications` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `message` TEXT NOT NULL , `internal_handled` TINYINT(1) NOT NULL DEFAULT '0' , `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`internal_handled`), INDEX (`external_handled`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
+	char NotificationsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Notifications` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `message` TEXT NOT NULL , `receiver` TINYINT(1) NOT NULL, `internal_handled` TINYINT(1) NOT NULL DEFAULT '0' , `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`receiver`), INDEX (`internal_handled`), INDEX (`external_handled`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	
 	SQL_SetCharset(hDB, "utf8mb4");
 			
@@ -104,6 +104,7 @@ public void OnPluginStart()
 	RegAdminCmd("sm_mytickets", MyTicketsCmd, 0, "View my tickets");
 	RegAdminCmd("sm_ticketqueue", TicketQueueCmd, 0, "View unhandled tickets");
 	RegAdminCmd("sm_viewticket", ViewTicketCmd, 0, "View ticket details");
+	RegAdminCmd("sm_replyticket", ReplyTicketCmd, 0, "Reply to ticket");
 	
 	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
 	RegAdminCmd("ticketron_admin", VoidCmd, ADMFLAG_GENERIC, "Ticketron Admin Permission Check");
@@ -198,8 +199,8 @@ public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] er
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
-	CReplyToCommand(client, "{grey}Your Ticket ID: {chartreuse}%i{grey}.", ticketid);
-	CReplyToCommand(client, "{grey}View Your Ticket Using {chartreuse}!ViewTicket %i{grey}.", ticketid);
+	CReplyToCommand(client, "{grey}Your ticket ID: {chartreuse}%i{grey}.", ticketid);
+	CReplyToCommand(client, "{grey}View your ticket using {chartreuse}!ViewTicket %i{grey}.", ticketid);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 }
@@ -313,9 +314,9 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
-	CReplyToCommand(client, "{grey}Now Handling Ticket ID: {chartreuse}%i{grey}.", ticket);
-	CReplyToCommand(client, "{grey}Unhandle The Ticket Using {chartreuse}!UnhandleTicket #{grey}.");
-	CReplyToCommand(client, "{grey}View The Ticket Using {chartreuse}!ViewTicket %i{grey}.", ticket);
+	CReplyToCommand(client, "{grey}Now handling ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "{grey}Unhandle the ticket using {chartreuse}!UnhandleTicket #{grey}.");
+	CReplyToCommand(client, "{grey}View the ticket using {chartreuse}!ViewTicket %i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 	
@@ -323,7 +324,7 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 	
 	GetClientName(client, Client_Name, sizeof Client_Name);
 	
-	Ticketron_AddNotification(ticket, "%s Is now handling your ticket", Client_Name);
+	Ticketron_AddNotification(ticket, false, "%s Is now handling your ticket", Client_Name);
 }
 
 public Action UnhandleTicketCmd(int client, int args)
@@ -414,7 +415,7 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
-	CReplyToCommand(client, "{grey}Unhandled Ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "{grey}Unhandled ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 	
@@ -422,7 +423,7 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 	
 	GetClientName(client, Client_Name, sizeof Client_Name);
 	
-	Ticketron_AddNotification(ticket, "%s Unhandled your ticket", Client_Name);
+	Ticketron_AddNotification(ticket, false, "%s Unhandled your ticket", Client_Name);
 }
 
 public Action MyTicketsCmd(int client, int args)
@@ -739,17 +740,18 @@ public Action ViewTicketCmd(int client, int args)
 	WritePackCell(pData, client);
 	WritePackCell(pData, ticket);
 	
-	hDB.Query(SQL_OnViewticket, Select_Query, pData);
+	hDB.Query(SQL_OnViewTicket, Select_Query, pData);
 	
 	return Plugin_Handled;
 }
 
-public void SQL_OnViewticket(Database db, DBResultSet results, const char[] error, any pData)
+public void SQL_OnViewTicket(Database db, DBResultSet results, const char[] error, any pData)
 {
 	ResetPack(pData);
 	
 	ReplySource CmdOrigin = ReadPackCell(pData);
 	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
 	
 	SetCmdReplySource(CmdOrigin);
 	
@@ -777,11 +779,9 @@ public void SQL_OnViewticket(Database db, DBResultSet results, const char[] erro
 		return;
 	}
 	
-	int ticket;
-	char hostname[64], breed[32], target_name[32], reporter_name[32], reporter_steamid[32], reason[2048], handler_name[32], timestamp[32];
+	char hostname[64], breed[32], target_name[32], reporter_name[32], reason[2048], handler_name[32], timestamp[32], Select_Query[512];
 	
 	results.FetchRow();
-	ticket = results.FetchInt(0);
 	results.FetchString(2, hostname, sizeof hostname);
 	results.FetchString(3, breed, sizeof breed);
 	results.FetchString(4, target_name, sizeof target_name);
@@ -789,6 +789,51 @@ public void SQL_OnViewticket(Database db, DBResultSet results, const char[] erro
 	results.FetchString(11, reason, sizeof reason);
 	results.FetchString(12, handler_name, sizeof handler_name);
 	results.FetchString(16, timestamp, sizeof timestamp);
+	
+	WritePackString(pData, hostname);
+	WritePackString(pData, breed);
+	WritePackString(pData, target_name);
+	WritePackString(pData, reporter_name);
+	WritePackString(pData, reason);
+	WritePackString(pData, handler_name);
+	WritePackString(pData, timestamp);
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Notifications` WHERE `ticket_id` = '%i' ORDER BY id", ticket);
+	
+	db.Query(SQL_OnViewTicketReplies, Select_Query, pData);
+}
+
+public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char[] error, any pData)
+{
+	char hostname[64], breed[32], target_name[32], reporter_name[32], reason[2048], handler_name[32], timestamp[32];
+	
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);	
+	ReadPackString(pData, hostname, sizeof hostname);
+	ReadPackString(pData, breed, sizeof breed);
+	ReadPackString(pData, target_name, sizeof target_name);
+	ReadPackString(pData, reporter_name, sizeof reporter_name);
+	ReadPackString(pData, reason, sizeof reason);
+	ReadPackString(pData, handler_name, sizeof handler_name);
+	ReadPackString(pData, timestamp, sizeof timestamp);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to view ticket: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Error while selecting the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
@@ -802,16 +847,176 @@ public void SQL_OnViewticket(Database db, DBResultSet results, const char[] erro
 	
 	CReplyToCommand(client, "{grey}Message: {chartreuse}%s", reason);
 	
+	char Replier_Name[32], Message[1024];
+	
+	while(results.FetchRow())
+	{
+		results.FetchString(2, Replier_Name, sizeof Replier_Name);
+		results.FetchString(4, Message, sizeof Message);
+		
+		CReplyToCommand(client, "");
+	
+		CReplyToCommand(client, "{lightseagreen}%s: {gray}%s", Replier_Name, Message);
+	
+		CReplyToCommand(client, "");
+	}
+	
 	CReplyToCommand(client, "");
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
+}
+
+public Action ReplyTicketCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	char buffer[16], Select_Query[256], Client_SteamID64[32], Message[1024];
+	int ticket;
+		
+	GetCmdArg(1, buffer, sizeof buffer);
+	GetCmdArg(2, Message, sizeof Message);
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	ticket = StringToInt(buffer);
+	
+	if (ticket < 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Ticket number cannot be negative");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return Plugin_Handled;
+	}
+	
+	if (strlen(Message) < 5)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Please add some details");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return Plugin_Handled;
+	}
+		
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM FROM `Ticketron_Tickets` WHERE `id` = '%i' AND (`reporter_steamid` = '%s' OR `handler_steamid` = '%s')", ticket, Client_SteamID64, Client_SteamID64);
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, ticket);
+	WritePackString(pData, Message);
+	
+	hDB.Query(SQL_OnReplyTicketSelect, Select_Query, pData);
+	
+	return Plugin_Handled;
+}
+
+public void SQL_OnReplyTicketSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to reply to ticket: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Error while replying to the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	if (results.RowCount == 0)
+	{		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Insufficient permission or the ticket does not exist.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	char Insert_Query[512], Client_Name[MAX_NAME_LENGTH], Escaped_Name[65], Client_SteamID64[32], Message[1024], Escaped_Message[2049], Search_ID[32];
+	
+	results.FetchRow();
+	results.FetchString(8, Search_ID, sizeof Search_ID);
+	
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	GetClientName(client, Client_Name, sizeof Client_Name);
+	ReadPackString(pData, Message, sizeof Message);
+	
+	int isOwn = (StrEqual(Search_ID, Client_SteamID64)) ? 1 : 0;
+	WritePackCell(pData, isOwn);
+	
+	WritePackString(pData, Client_Name);
+	
+	db.Escape(Client_Name, Escaped_Name, sizeof Escaped_Name);
+	db.Escape(Message, Escaped_Message, sizeof Escaped_Message);
+	
+	Format(Insert_Query, sizeof Insert_Query, "INSERT INTO `Ticketron_Replies` (`ticket_id`, `replier_name`, `replier_steamid`, `message`) VALUES ('%i', '%s', '%s', '%s')", ticket, Escaped_Name, Client_SteamID64, Escaped_Message);
+	
+	db.Query(SQL_OnReplyTicketInsert, Insert_Query, pData);
+}
+
+public void SQL_OnReplyTicketInsert(Database db, DBResultSet results, const char[] error, any pData)
+{
+	char message[1024];
+	
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	ReadPackString(pData, message, sizeof message);
+	int isOwn = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to reply to ticket: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Error while replying to the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	CReplyToCommand(client, "{grey}Replied to ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "{grey}View the ticket ising {chartreuse}!ViewTicket %i{grey}.", ticket);
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	
+	char Client_Name[MAX_NAME_LENGTH];
+	ReadPackString(pData, Client_Name, sizeof Client_Name);
+	
+	if (!isOwn)
+		Ticketron_AddNotification(ticket, false, "%s Replied to your ticket", Client_Name);
+	else
+		Ticketron_AddNotification(ticket, true, "Got a reply from user");
 }
 
 public Action PollingTimer(Handle timer)
 {
 	char SelectQuery[512];
 	
-	Format(SelectQuery, sizeof SelectQuery, "SELECT n.`*`, t.`reporter_steamid` FROM `Ticketron_Notifications` n INNER JOIN `Ticketron_Tickets` t ON t.`id` = n.`ticket_id`");
+	Format(SelectQuery, sizeof SelectQuery, "SELECT n.`*`, t.`reporter_steamid`, t.`handler_steamid` FROM `Ticketron_Notifications` n INNER JOIN `Ticketron_Tickets` t ON t.`id` = n.`ticket_id`");
 	
 	hDB.Query(SQL_OnPollingTimerSelect, SelectQuery);
 }
@@ -823,16 +1028,17 @@ public void SQL_OnPollingTimerSelect(Database db, DBResultSet results, const cha
 	if (results == null)
 		return;
 	
-	int NID;
-	int Ticket;
-	char Message[256], Client_SteamID64[32], Search_SteamID64[32], UpdateQuery[256];
+	int NID, Ticket, Receiver;
+	char Message[256], Client_SteamID64[32], Handler_SteamID64[32], Search_SteamID64[32], UpdateQuery[256];
 
 	while(results.FetchRow())
 	{
 		NID = results.FetchInt(0);
 		Ticket = results.FetchInt(1);
 		results.FetchString(2, Message, sizeof Message);
-		results.FetchString(6, Client_SteamID64, sizeof Client_SteamID64);
+		Receiver = results.FetchInt(3);
+		results.FetchString(7, Client_SteamID64, sizeof Client_SteamID64);
+		results.FetchString(8, Handler_SteamID64, sizeof Handler_SteamID64);
 		
 		for (int i = 1; i <= MaxClients; i++)
 		{
@@ -840,12 +1046,24 @@ public void SQL_OnPollingTimerSelect(Database db, DBResultSet results, const cha
 			{
 				GetClientAuthId(i, AuthId_SteamID64, Search_SteamID64, sizeof Search_SteamID64);
 				
-				if (StrEqual(Client_SteamID64, Search_SteamID64, false))
+				if (Receiver)
 				{
-					MoreColors_CPrintToChat(i, "{lightseagreen}Ticket #%i: {grey}%s", Ticket, Message);
+					if (StrEqual(Handler_SteamID64, Search_SteamID64, false))
+					{
+						MoreColors_CPrintToChat(i, "{lightseagreen}Ticket #%i: {grey}%s", Ticket, Message);
 					
-					Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Notifications` SET `internal_handled` = 1 WHERE `id` = '%i'", NID);
-					db.Query(SQL_OnPollingTimerUpdate, UpdateQuery);
+						Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Notifications` SET `internal_handled` = 1 WHERE `id` = '%i'", NID);
+						db.Query(SQL_OnPollingTimerUpdate, UpdateQuery);
+					}
+				} else
+				{
+					if (StrEqual(Client_SteamID64, Search_SteamID64, false))
+					{
+						MoreColors_CPrintToChat(i, "{lightseagreen}Ticket #%i: {grey}%s", Ticket, Message);
+					
+						Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Notifications` SET `internal_handled` = 1 WHERE `id` = '%i'", NID);
+						db.Query(SQL_OnPollingTimerUpdate, UpdateQuery);
+					}
 				}
 			}
 		}
@@ -859,15 +1077,16 @@ public void SQL_OnPollingTimerUpdate(Database db, DBResultSet results, const cha
 
 public int NativeAddNotification(Handle plugin, int numParams)
 {
-	int written, ticket;
+	int written, ticket, receiver;
 	char sMessage[1024], Escaped_Message[2049], InsertSQL[512];
 	
 	ticket = GetNativeCell(1);
-	FormatNativeString(0, 2, 3, sizeof sMessage, written, sMessage);
+	receiver = GetNativeCell(2);
+	FormatNativeString(0, 3, 4, sizeof sMessage, written, sMessage);
 	
 	hDB.Escape(sMessage, Escaped_Message, sizeof Escaped_Message);
 	
-	Format(InsertSQL, sizeof InsertSQL, "INSERT INTO `Ticketron_Notifications` (`ticket_id`, `message`) VALUES ('%i', '%s')", ticket, Escaped_Message);
+	Format(InsertSQL, sizeof InsertSQL, "INSERT INTO `Ticketron_Notifications` (`ticket_id`, `message`, `receiver`) VALUES ('%i', '%s', '%i')", ticket, Escaped_Message, receiver);
 	
 	hDB.Query(SQL_OnNativeAddNotification, InsertSQL);
 	
