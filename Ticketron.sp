@@ -130,6 +130,17 @@ public Action CreateTicketCmd(int client, int args)
 	ReplySource CmdOrigin = GetCmdReplySource();
 	GetCmdArg(1, buffer, sizeof buffer);
 	
+	if (strlen(buffer) < 15)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Please add some details");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return Plugin_Handled;
+	}
+	
 	int buffer_len = strlen(buffer) * 2 + 1;
 	int Client_Seed = GetClientSeed(client);
 	
