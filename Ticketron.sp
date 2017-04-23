@@ -8,6 +8,7 @@
 #include <sourcemod>
 #include <morecolors_store>
 #include <EventLogs>
+#include <Ticketron>
 #include <SteamWorks>
 #include <steamtools>
 
@@ -36,6 +37,8 @@ bool InGroup[MAXPLAYERS + 1];
 float g_fPollingRate = 10.0;
 
 Handle g_hPollingTimer;
+
+int IID = -1;
 
 //<!--- ConVars --->
 ConVar cPollingRate;
@@ -70,8 +73,9 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	SQL_TQuery(hDB, OnTableCreate, NotificationsCreateSQL);
 	
 	RegPluginLibrary("Ticketron");
-	//TODO: Create Native
-	//CreateNative("Ticketron_ReplyMessage", NativeLogPlugin);
+
+	CreateNative("Ticketron_AddNotification", NativeAddNotification);
+	
 	return APLRes_Success;
 }
 
@@ -209,7 +213,7 @@ public Action HandleTicketCmd(int client, int args)
 	GetCmdArg(1, buffer, sizeof buffer);
 	ticket = StringToInt(buffer);
 	
-	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i AND `handled` = 0 AND `closed` = 0", ticket);
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i AND `closed` = 0", ticket);
 	
 	DataPack pData = CreateDataPack();
 	
@@ -314,6 +318,12 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 	CReplyToCommand(client, "{grey}View The Ticket Using {chartreuse}!ViewTicket %i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
+	
+	char Client_Name[MAX_NAME_LENGTH];
+	
+	GetClientName(client, Client_Name, sizeof Client_Name);
+	
+	Ticketron_AddNotification(ticket, "%s Is now handling your ticket", Client_Name);
 }
 
 public Action UnhandleTicketCmd(int client, int args)
@@ -407,6 +417,12 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 	CReplyToCommand(client, "{grey}Unhandled Ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
+	
+	char Client_Name[MAX_NAME_LENGTH];
+	
+	GetClientName(client, Client_Name, sizeof Client_Name);
+	
+	Ticketron_AddNotification(ticket, "%s Unhandled your ticket", Client_Name);
 }
 
 public Action MyTicketsCmd(int client, int args)
@@ -701,6 +717,17 @@ public Action ViewTicketCmd(int client, int args)
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	ticket = StringToInt(buffer);
 	
+	if (ticket < 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Ticket number cannot be negative");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return Plugin_Handled;
+	}
+	
 	if (CheckCommandAccess(client, "ticketron_admin", ADMFLAG_GENERIC))
 		Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i", ticket);
 	else
@@ -739,31 +766,38 @@ public void SQL_OnViewticket(Database db, DBResultSet results, const char[] erro
 		return;
 	}
 	
-	int ticket, reporter_seed;
-	char hostname[64], breed[32], target_name[32], target_steamid[32], reporter_name[32], reporter_steamid[32], reason[2048], handler_name[32], handler_steamid[32], timestamp[32];
+	if (results.RowCount == 0)
+	{		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Ticket does not exist.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	int ticket;
+	char hostname[64], breed[32], target_name[32], reporter_name[32], reporter_steamid[32], reason[2048], handler_name[32], timestamp[32];
 	
 	results.FetchRow();
 	ticket = results.FetchInt(0);
 	results.FetchString(2, hostname, sizeof hostname);
 	results.FetchString(3, breed, sizeof breed);
 	results.FetchString(4, target_name, sizeof target_name);
-	results.FetchString(5, target_steamid, sizeof target_steamid);
 	results.FetchString(7, reporter_name, sizeof reporter_name);
-	results.FetchString(8, reporter_steamid, sizeof reporter_steamid);
-	reporter_seed = results.FetchInt(10);
 	results.FetchString(11, reason, sizeof reason);
 	results.FetchString(12, handler_name, sizeof handler_name);
-	results.FetchString(13, handler_steamid, sizeof handler_steamid);
 	results.FetchString(16, timestamp, sizeof timestamp);
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 	CReplyToCommand(client, "{grey}Overview: #{chartreuse}%i {grey}| {chartreuse}%s {grey}| {chartreuse}%s {grey}| {chartreuse}%s", ticket, hostname, breed, timestamp);
 	if (target_name[0])
-		CReplyToCommand(client, "{grey}Target: {chartreuse}%s {grey}| {chartreuse}%s", target_name, target_steamid);
-	CReplyToCommand(client, "{grey}Reporter: {chartreuse}%s {grey}| {chartreuse}%s {grey}| {chartreuse}%i", reporter_name, reporter_steamid, reporter_seed);
+		CReplyToCommand(client, "{grey}Target: {chartreuse}%s", target_name);
+	CReplyToCommand(client, "{grey}Reporter: {chartreuse}%s", reporter_name);
 	if (handler_name[0])
-		CReplyToCommand(client, "{grey}Handler: {chartreuse}%s {grey}| {chartreuse}%s", handler_name, handler_steamid);
+		CReplyToCommand(client, "{grey}Handler: {chartreuse}%s", handler_name);
 	CReplyToCommand(client, "");
 	
 	CReplyToCommand(client, "{grey}Message: {chartreuse}%s", reason);
@@ -821,6 +855,31 @@ public void SQL_OnPollingTimerSelect(Database db, DBResultSet results, const cha
 public void SQL_OnPollingTimerUpdate(Database db, DBResultSet results, const char[] error, any pData)
 {
 	//Not worrying about the result
+}
+
+public int NativeAddNotification(Handle plugin, int numParams)
+{
+	int written, ticket;
+	char sMessage[1024], Escaped_Message[2049], InsertSQL[512];
+	
+	ticket = GetNativeCell(1);
+	FormatNativeString(0, 2, 3, sizeof sMessage, written, sMessage);
+	
+	hDB.Escape(sMessage, Escaped_Message, sizeof Escaped_Message);
+	
+	Format(InsertSQL, sizeof InsertSQL, "INSERT INTO `Ticketron_Notifications` (`ticket_id`, `message`) VALUES ('%i', '%s')", ticket, Escaped_Message);
+	
+	hDB.Query(SQL_OnNativeAddNotification, InsertSQL);
+	
+	return IID;
+}
+
+public void SQL_OnNativeAddNotification(Database db, DBResultSet results, const char[] error, any pData)
+{
+	if (results == null)
+		EL_LogPlugin(LOG_ERROR, "Unable to add notification: %s", error);
+		
+	IID = results.InsertId;
 }
 
 public void OnConvarChanged(ConVar convar, const char[] oldValue, const char[] newValue)
