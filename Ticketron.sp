@@ -795,9 +795,9 @@ public Action VoidCmd(int client, int args)
 
 public int GetClientSeed(int client)
 {
-	if (InGroup[client])
-		return 2;
 	if (CheckCommandAccess(client, "ticketron_donor", ADMFLAG_RESERVATION))
+		return 2;
+	if (InGroup[client])
 		return 1;
 		
 	return 0;
