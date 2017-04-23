@@ -209,7 +209,7 @@ public Action HandleTicketCmd(int client, int args)
 	GetCmdArg(1, buffer, sizeof buffer);
 	ticket = StringToInt(buffer);
 	
-	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i", ticket);
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i AND `handled` = 0 AND `closed` = 0", ticket);
 	
 	DataPack pData = CreateDataPack();
 	
@@ -239,6 +239,17 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		CReplyToCommand(client, "{grey}Error while assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	if (results.RowCount == 0)
+	{		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Insufficient permission or the ticket does not exist.");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -315,7 +326,7 @@ public Action UnhandleTicketCmd(int client, int args)
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	ticket = StringToInt(buffer);
 	
-	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i AND `handler_steamid` = '%s' AND `handled` = 1", ticket, Client_SteamID64);
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i AND `handler_steamid` = '%s' AND `handled` = 1 AND `closed` = 0", ticket, Client_SteamID64);
 	
 	DataPack pData = CreateDataPack();
 	
@@ -621,7 +632,7 @@ public void SQL_OnTicketQueueCount(Database db, DBResultSet results, const char[
 	
 	char Select_Query[256];
 		
-	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `handled` = 0 ORDER BY `id`, `reporter_seed` DESC LIMIT %i OFFSET %i", PageLimit, offset);
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `handled` = 0 AND `closed` = 0 ORDER BY `id`, `reporter_seed` DESC LIMIT %i OFFSET %i", PageLimit, offset);
 	
 	db.Query(SQL_OnTicketQueueSelect, Select_Query, pData);
 }
@@ -747,11 +758,11 @@ public void SQL_OnViewticket(Database db, DBResultSet results, const char[] erro
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
-	CReplyToCommand(client, "{grey}Overview: {chartreuse}%i {grey}| {chartreuse}%s {grey}| {chartreuse}%s {grey}| {chartreuse}%s", ticket, hostname, breed, timestamp);
-	if (!target_name[0])
+	CReplyToCommand(client, "{grey}Overview: #{chartreuse}%i {grey}| {chartreuse}%s {grey}| {chartreuse}%s {grey}| {chartreuse}%s", ticket, hostname, breed, timestamp);
+	if (target_name[0])
 		CReplyToCommand(client, "{grey}Target: {chartreuse}%s {grey}| {chartreuse}%s", target_name, target_steamid);
 	CReplyToCommand(client, "{grey}Reporter: {chartreuse}%s {grey}| {chartreuse}%s {grey}| {chartreuse}%i", reporter_name, reporter_steamid, reporter_seed);
-	if (!handler_name[0])
+	if (handler_name[0])
 		CReplyToCommand(client, "{grey}Handler: {chartreuse}%s {grey}| {chartreuse}%s", handler_name, handler_steamid);
 	CReplyToCommand(client, "");
 	
