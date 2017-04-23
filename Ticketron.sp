@@ -99,8 +99,10 @@ public void OnPluginStart()
 	RegAdminCmd("sm_unhandle", UnhandleTicketCmd, ADMFLAG_GENERIC, "Unhandles ticket");
 	RegAdminCmd("sm_mytickets", MyTicketsCmd, 0, "View my tickets");
 	RegAdminCmd("sm_ticketqueue", TicketQueueCmd, 0, "View unhandled tickets");
+	RegAdminCmd("sm_viewticket", ViewTicketCmd, 0, "View ticket details");
 	
 	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
+	RegAdminCmd("ticketron_admin", VoidCmd, ADMFLAG_GENERIC, "Ticketron Admin Permission Check");
 	
 	if (!SteamWorks_IsConnected())
 	{
@@ -181,7 +183,7 @@ public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] er
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{grey}Error when creating the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error while creating the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -236,7 +238,7 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{grey}Error when assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error while assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -287,7 +289,7 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{grey}Error when assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error while assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -342,7 +344,7 @@ public void SQL_OnTicketUnhandleSelect(Database db, DBResultSet results, const c
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{grey}Error when authorizing the action. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error while authorizing the action. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -382,7 +384,7 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{grey}Error when unassigning the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error while unassigning the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -676,6 +678,88 @@ public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char
 	CReplyToCommand(client, Divider_Pagination, page+1, totalpages+1);
 	CReplyToCommand(client, "");
 	
+}
+
+public Action ViewTicketCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	char buffer[16], Select_Query[256], Client_SteamID64[32];
+	int ticket;
+	
+	GetCmdArg(1, buffer, sizeof buffer);
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	ticket = StringToInt(buffer);
+	
+	if (CheckCommandAccess(client, "ticketron_admin", ADMFLAG_GENERIC))
+		Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i", ticket);
+	else
+		Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i AND `reporter_steamid` = '%s'", ticket, Client_SteamID64);
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, ticket);
+	
+	hDB.Query(SQL_OnViewticket, Select_Query, pData);
+	
+	return Plugin_Handled;
+}
+
+public void SQL_OnViewticket(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to view ticket: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Error while selecting the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	int ticket, reporter_seed;
+	char hostname[64], breed[32], target_name[32], target_steamid[32], reporter_name[32], reporter_steamid[32], reason[2048], handler_name[32], handler_steamid[32], timestamp[32];
+	
+	results.FetchRow();
+	ticket = results.FetchInt(0);
+	results.FetchString(2, hostname, sizeof hostname);
+	results.FetchString(3, breed, sizeof breed);
+	results.FetchString(4, target_name, sizeof target_name);
+	results.FetchString(5, target_steamid, sizeof target_steamid);
+	results.FetchString(7, reporter_name, sizeof reporter_name);
+	results.FetchString(8, reporter_steamid, sizeof reporter_steamid);
+	reporter_seed = results.FetchInt(10);
+	results.FetchString(11, reason, sizeof reason);
+	results.FetchString(12, handler_name, sizeof handler_name);
+	results.FetchString(13, handler_steamid, sizeof handler_steamid);
+	results.FetchString(16, timestamp, sizeof timestamp);
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	CReplyToCommand(client, "{grey}Overview: {chartreuse}%i {grey}| {chartreuse}%s {grey}| {chartreuse}%s {grey}| {chartreuse}%s", ticket, hostname, breed, timestamp);
+	if (!target_name[0])
+		CReplyToCommand(client, "{grey}Target: {chartreuse}%s {grey}| {chartreuse}%s", target_name, target_steamid);
+	CReplyToCommand(client, "{grey}Reporter: {chartreuse}%s {grey}| {chartreuse}%s {grey}| {chartreuse}%i", reporter_name, reporter_steamid, reporter_seed);
+	if (!handler_name[0])
+		CReplyToCommand(client, "{grey}Handler: {chartreuse}%s {grey}| {chartreuse}%s", handler_name, handler_steamid);
+	CReplyToCommand(client, "");
+	
+	CReplyToCommand(client, "{grey}Message: {chartreuse}%s", reason);
+	
+	CReplyToCommand(client, "");
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
 }
 
 public Action PollingTimer(Handle timer)
