@@ -15,12 +15,12 @@
 
 #pragma newdecls required
 
-#define Divider_Left "▬▬ι═══════ﺤ(̲̅ ̲̅(̲̅"
-#define Divider_Right ") ̲̅)-═══════ι▬▬";
+#define Divider_Left "▬▬▬▬ι═══════ﺤ(̲̅ ̲̅(̲̅"
+#define Divider_Right ") ̲̅)-═══════ι▬▬▬▬▬";
 
-#define Divider_Success "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Success) ̲̅){grey}-═══════ι▬▬"
-#define Divider_Failure "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Failure) ̲̅){grey}-═══════ι▬▬"
-#define Divider_Pagination "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅   %i{grey}/{lightseagreen}%i   ) ̲̅){grey}-═══════ι▬▬"
+#define Divider_Success "{grey}▬▬▬▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Success) ̲̅){grey}-═══════ι▬▬▬▬▬"
+#define Divider_Failure "{grey}▬▬▬▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Failure) ̲̅){grey}-═══════ι▬▬▬▬▬"
+#define Divider_Pagination "{grey}▬▬▬▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅   %i{grey}/{lightseagreen}%i   ) ̲̅){grey}-═══════ι▬▬▬▬▬"
 
 #define PageLimit 5
 
@@ -62,7 +62,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 		return APLRes_Failure;
 	
 	//Tickets table must be created before others due to foreign key references	
-	char TicketsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Tickets` ( `id` INT NOT NULL AUTO_INCREMENT , `host` VARBINARY(16) NOT NULL , `hostname` VARCHAR(64) NOT NULL , `breed` VARCHAR(32) NOT NULL , `target_name` VARCHAR(32) NULL DEFAULT NULL , `target_steamid` VARCHAR(32) NULL DEFAULT NULL , `target_ip` VARBINARY(16) NULL DEFAULT NULL, `reporter_name` VARCHAR(32) NOT NULL , `reporter_steamid` VARCHAR(32) NOT NULL , `reporter_ip` VARBINARY(16) NOT NULL, `reporter_seed` TINYINT(1) NOT NULL, `reason` TEXT NOT NULL , `handler_name` VARCHAR(32) NULL DEFAULT NULL , `handler_steamid` VARCHAR(32) NULL DEFAULT NULL , `handled` TINYINT(1) NOT NULL DEFAULT '0' , `data` TEXT NULL DEFAULT NULL, `time_reported` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , `time_handled` TIMESTAMP NULL DEFAULT NULL , `time_closed` TIMESTAMP NULL DEFAULT NULL , `closed` TINYINT(1) NOT NULL DEFAULT '0' , PRIMARY KEY (`id`), INDEX (`breed`), INDEX (`handler_steamid`), INDEX (`handled`), INDEX (`target_steamid`), INDEX (`target_ip`), INDEX (`reporter_steamid`), INDEX (`reporter_ip`), INDEX(`reporter_seed`), INDEX (`closed`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
+	char TicketsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Tickets` ( `id` INT NOT NULL AUTO_INCREMENT , `host` VARBINARY(16) NOT NULL , `hostname` VARCHAR(64) NOT NULL , `breed` VARCHAR(32) NOT NULL , `target_name` VARCHAR(32) NULL DEFAULT NULL , `target_steamid` VARCHAR(32) NULL DEFAULT NULL , `target_ip` VARBINARY(16) NULL DEFAULT NULL, `reporter_name` VARCHAR(32) NOT NULL , `reporter_steamid` VARCHAR(32) NOT NULL , `reporter_ip` VARBINARY(16) NOT NULL, `reporter_seed` TINYINT(1) NOT NULL, `reason` TEXT NOT NULL , `handler_name` VARCHAR(32) NULL DEFAULT NULL , `handler_steamid` VARCHAR(32) NULL DEFAULT NULL , `handled` TINYINT(1) NOT NULL DEFAULT '0' , `data` TEXT NULL DEFAULT NULL, `time_reported` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , `time_handled` TIMESTAMP NULL DEFAULT NULL , `time_closed` TIMESTAMP NULL DEFAULT NULL , `closed` TINYINT(1) NOT NULL DEFAULT '0', `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , PRIMARY KEY (`id`), INDEX (`breed`), INDEX (`handler_steamid`), INDEX (`handled`), INDEX (`target_steamid`), INDEX (`target_ip`), INDEX (`reporter_steamid`), INDEX (`reporter_ip`), INDEX(`reporter_seed`), INDEX (`closed`), INDEX (`external_handled`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	char RepliesCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Replies` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `replier_name` VARCHAR(32) NOT NULL , `replier_steamid` VARCHAR(32) NOT NULL , `message` LONGTEXT NOT NULL , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`replier_steamid`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	char NotificationsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Notifications` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `message` TEXT NOT NULL , `receiver` TINYINT(1) NOT NULL, `internal_handled` TINYINT(1) NOT NULL DEFAULT '0' , `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`receiver`), INDEX (`internal_handled`), INDEX (`external_handled`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	
@@ -135,7 +135,7 @@ public Action CreateTicketCmd(int client, int args)
 	char buffer[2048];
 		
 	ReplySource CmdOrigin = GetCmdReplySource();
-	GetCmdArg(1, buffer, sizeof buffer);
+	GetCmdArgString(buffer, sizeof buffer);
 	
 	if (strlen(buffer) < 15)
 	{
@@ -798,7 +798,7 @@ public void SQL_OnViewTicket(Database db, DBResultSet results, const char[] erro
 	WritePackString(pData, handler_name);
 	WritePackString(pData, timestamp);
 	
-	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Notifications` WHERE `ticket_id` = '%i' ORDER BY id", ticket);
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Replies` WHERE `ticket_id` = '%i' ORDER BY id", ticket);
 	
 	db.Query(SQL_OnViewTicketReplies, Select_Query, pData);
 }
@@ -844,8 +844,8 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 	if (handler_name[0])
 		CReplyToCommand(client, "{grey}Handler: {chartreuse}%s", handler_name);
 	CReplyToCommand(client, "");
-	
 	CReplyToCommand(client, "{grey}Message: {chartreuse}%s", reason);
+	CReplyToCommand(client, "");
 	
 	char Replier_Name[32], Message[1024];
 	
@@ -856,7 +856,10 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 		
 		CReplyToCommand(client, "");
 	
-		CReplyToCommand(client, "{lightseagreen}%s: {gray}%s", Replier_Name, Message);
+		if (StrEqual(Replier_Name, reporter_name))
+			CReplyToCommand(client, "{community}%s {white}: {gray}%s", Replier_Name, Message);
+		else
+			CReplyToCommand(client, "{collectors}%s {white}: {gray}%s", Replier_Name, Message);
 	
 		CReplyToCommand(client, "");
 	}
@@ -869,19 +872,25 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 public Action ReplyTicketCmd(int client, int args)
 {
 	ReplySource CmdOrigin = GetCmdReplySource();
-	char buffer[16], Select_Query[256], Client_SteamID64[32], Message[1024];
+	char buffer[16], Select_Query[256], Client_SteamID64[32], Message[1024], arg[64];
 	int ticket;
 		
 	GetCmdArg(1, buffer, sizeof buffer);
-	GetCmdArg(2, Message, sizeof Message);
+	
+	for (int i = 2; i <= args; i++)
+	{
+		GetCmdArg(i, arg, sizeof arg);
+		Format(Message, sizeof Message, "%s %s", Message, arg);
+	}
+	
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	ticket = StringToInt(buffer);
 	
-	if (ticket < 0)
+	if (ticket < 1)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{grey}Ticket number cannot be negative");
+		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -899,7 +908,7 @@ public Action ReplyTicketCmd(int client, int args)
 		return Plugin_Handled;
 	}
 		
-	Format(Select_Query, sizeof Select_Query, "SELECT * FROM FROM `Ticketron_Tickets` WHERE `id` = '%i' AND (`reporter_steamid` = '%s' OR `handler_steamid` = '%s')", ticket, Client_SteamID64, Client_SteamID64);
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = '%i' AND (`reporter_steamid` = '%s' OR `handler_steamid` = '%s')", ticket, Client_SteamID64, Client_SteamID64);
 	
 	DataPack pData = CreateDataPack();
 	
@@ -1016,7 +1025,7 @@ public Action PollingTimer(Handle timer)
 {
 	char SelectQuery[512];
 	
-	Format(SelectQuery, sizeof SelectQuery, "SELECT n.`*`, t.`reporter_steamid`, t.`handler_steamid` FROM `Ticketron_Notifications` n INNER JOIN `Ticketron_Tickets` t ON t.`id` = n.`ticket_id`");
+	Format(SelectQuery, sizeof SelectQuery, "SELECT n.`*`, t.`reporter_steamid`, t.`handler_steamid` FROM `Ticketron_Notifications` n INNER JOIN `Ticketron_Tickets` t ON t.`id` = n.`ticket_id` AND n.`internal_handled` = 0");
 	
 	hDB.Query(SQL_OnPollingTimerSelect, SelectQuery);
 }
