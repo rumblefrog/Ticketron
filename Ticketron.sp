@@ -88,6 +88,7 @@ public void OnPluginStart()
 	
 	RegAdminCmd("sm_ticket", CreateTicketCmd, 0, "Creates ticket");
 	RegAdminCmd("sm_handle", HandleTicketCmd, ADMFLAG_GENERIC, "Handles ticket");
+	RegAdminCmd("sm_unhandle", UnhandleTicketCmd, ADMFLAG_GENERIC, "Unhandles ticket");
 	
 	if (!SteamWorks_IsConnected())
 	{
@@ -104,7 +105,6 @@ public void OnPluginStart()
 	cBreed.GetString(g_cBreed, sizeof g_cBreed);
 	HookConVarChange(cBreed, OnConvarChanged);
 	
-	//TODO: Implement using IN clause
 	g_hPollingTimer = CreateTimer(g_fPollingRate, PollingTimer, _, TIMER_REPEAT);
 }
 
@@ -150,11 +150,11 @@ public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] er
 	
 	if (results == null)
 	{
-		EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when creating the ticket. Please try again later.");
+		CReplyToCommand(client, "{lightseagreen}Error when creating the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -205,11 +205,11 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 	
 	if (results == null)
 	{
-		EL_LogPlugin(LOG_ERROR, "Unable to select row: %s", error);
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select row: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. Please try again later.");
+		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -239,7 +239,7 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 	
 	db.Escape(Client_Name, Escaped_Name, sizeof Escaped_Name);
 	
-	Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Tickets` SET `handler_name` = '%s', `handler_steamid` = '%s', `handled` = 1 WHERE `id` = '%i'", Escaped_Name, Client_SteamID64, ticket);
+	Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Tickets` SET `handler_name` = '%s', `handler_steamid` = '%s', `handled` = 1, `time_handled` = CURRENT_TIMESTAMP() WHERE `id` = '%i'", Escaped_Name, Client_SteamID64, ticket);
 	
 	db.Query(SQL_OnTicketHandleUpdate, UpdateQuery, pData);
 }
@@ -256,11 +256,11 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 	
 	if (results == null)
 	{
-		EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. Please try again later.");
+		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -272,6 +272,98 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 	CReplyToCommand(client, "{lightseagreen}Now Handling Ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "{lightseagreen}Unhandle The Ticket Using {chartreuse}!UnhandleTicket #{grey}.");
 	CReplyToCommand(client, "{lightseagreen}View The Ticket Using {chartreuse}!ViewTicket #{grey}.");
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+}
+
+public Action UnhandleTicketCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	char buffer[16], Select_Query[256], Client_SteamID64[32];
+	int ticket;
+	
+	GetCmdArg(1, buffer, sizeof buffer);
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	ticket = StringToInt(buffer);
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i AND `handler_steamid` = '%s' AND `handled` = 1", ticket, Client_SteamID64);
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, ticket);
+	
+	hDB.Query(SQL_OnTicketUnhandleSelect, Select_Query, pData);
+	
+	return Plugin_Handled;
+}
+
+public void SQL_OnTicketUnhandleSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Error when authorizing the action. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	} else if (results.RowCount == 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Insufficient permission while attempting to unhandle.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	char UpdateQuery[512];
+	
+	Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Tickets` SET `handler_name` = NULL, `handler_steamid` = NULL, `handled` = 0, `time_handled` = NULL WHERE `id` = '%i'", ticket);
+	
+	db.Query(SQL_OnTicketUnhandleUpdate, UpdateQuery, pData);
+}
+
+public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Error when unassigning the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	CReplyToCommand(client, "{lightseagreen}Now Unhandled Ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 }
