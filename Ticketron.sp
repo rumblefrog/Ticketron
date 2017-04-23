@@ -8,8 +8,8 @@
 #include <sourcemod>
 #include <morecolors_store>
 #include <EventLogs>
-#undef REQUIRE_EXTENSIONS
 #include <SteamWorks>
+#include <steamtools>
 
 
 #pragma newdecls required
@@ -26,6 +26,9 @@ Database hDB;
 char g_cIP[64];
 char g_cHostname[128];
 char g_cBreed[32];
+char g_cGroupID32[32];
+
+bool InGroup[MAXPLAYERS + 1];
 
 float g_fPollingRate = 10.0;
 
@@ -34,6 +37,7 @@ Handle g_hPollingTimer;
 //<!--- ConVars --->
 ConVar cPollingRate;
 ConVar cBreed;
+ConVar cGroupID32;
 
 public Plugin myinfo = 
 {
@@ -83,12 +87,15 @@ public void OnPluginStart()
 	
 	cPollingRate = CreateConVar("sm_ticketron_rate", "10", "Ticketron Notification Polling Rate", FCVAR_NONE, true, 1.0, false);
 	cBreed = CreateConVar("sm_ticketron_breed", "global", "Ticketron External Breed Identifier", FCVAR_NONE);
+	cGroupID32 = CreateConVar("sm_ticketron_groupid32", "0", "Steam Group 32-Bit ID", FCVAR_NONE);
 	
 	AutoExecConfig(true, "ticketron");
 	
 	RegAdminCmd("sm_ticket", CreateTicketCmd, 0, "Creates ticket");
 	RegAdminCmd("sm_handle", HandleTicketCmd, ADMFLAG_GENERIC, "Handles ticket");
 	RegAdminCmd("sm_unhandle", UnhandleTicketCmd, ADMFLAG_GENERIC, "Unhandles ticket");
+	
+	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
 	
 	if (!SteamWorks_IsConnected())
 	{
@@ -105,6 +112,9 @@ public void OnPluginStart()
 	cBreed.GetString(g_cBreed, sizeof g_cBreed);
 	HookConVarChange(cBreed, OnConvarChanged);
 	
+	cGroupID32.GetString(g_cGroupID32, sizeof g_cGroupID32);
+	HookConVarChange(cGroupID32, OnConvarChanged);
+	
 	g_hPollingTimer = CreateTimer(g_fPollingRate, PollingTimer, _, TIMER_REPEAT);
 }
 
@@ -116,6 +126,7 @@ public Action CreateTicketCmd(int client, int args)
 	GetCmdArg(1, buffer, sizeof buffer);
 	
 	int buffer_len = strlen(buffer) * 2 + 1;
+	int Client_Seed = GetClientSeed(client);
 	
 	char Client_Name[MAX_NAME_LENGTH], Client_SteamID64[32], Client_IP[45], Escaped_Name[128];
 	char[] Escaped_Reason = new char[buffer_len];
@@ -128,7 +139,7 @@ public Action CreateTicketCmd(int client, int args)
 	SQL_EscapeString(hDB, Client_Name, Escaped_Name, sizeof Escaped_Name);
 	SQL_EscapeString(hDB, buffer, Escaped_Reason, buffer_len);
 	
-	Format(InsertQuery, 1024 + buffer_len, "INSERT INTO `Ticketron_Tickets` (`host`, `hostname`, `breed`, `reporter_name`, `reporter_steamid`, `reporter_ip`, `reason`) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s')", g_cIP, g_cHostname, g_cBreed, Escaped_Name, Client_SteamID64, Client_IP, Escaped_Reason);
+	Format(InsertQuery, 1024 + buffer_len, "INSERT INTO `Ticketron_Tickets` (`host`, `hostname`, `breed`, `reporter_name`, `reporter_steamid`, `reporter_ip`, `reporter_seed`, `reason`) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%i', '%s')", g_cIP, g_cHostname, g_cBreed, Escaped_Name, Client_SteamID64, Client_IP, Client_Seed, Escaped_Reason);
 	
 	DataPack pData = CreateDataPack();
 	WritePackCell(pData, CmdOrigin);
@@ -218,10 +229,10 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 	
 	results.FetchRow();
 	
-	if (results.FetchInt(13) == 1)
+	if (results.FetchInt(14) == 1)
 	{
 		char Handler[MAX_NAME_LENGTH];
-		results.FetchString(11, Handler, sizeof Handler);
+		results.FetchString(12, Handler, sizeof Handler);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
@@ -428,6 +439,8 @@ public void OnConvarChanged(ConVar convar, const char[] oldValue, const char[] n
 	}
 	if (convar == cBreed)
 		cBreed.GetString(g_cBreed, sizeof g_cBreed);
+	if (convar == cGroupID32)
+		cGroupID32.GetString(g_cGroupID32, sizeof g_cGroupID32);
 }
 
 public int SteamWorks_SteamServersConnected()
@@ -435,6 +448,91 @@ public int SteamWorks_SteamServersConnected()
 	int octets[4];
 	SteamWorks_GetPublicIP(octets);
 	Format(g_cIP, sizeof(g_cIP), "%d.%d.%d.%d:%d", octets[0], octets[1], octets[2], octets[3], GetConVarInt(FindConVar("hostport")));
+}
+
+public void OnClientPostAdminCheck(int iClient)
+{
+	if (!StrEqual(g_cGroupID32, "0"))
+	{
+		SteamWorks_GetUserGroupStatus(iClient, StringToInt(g_cGroupID32));
+	}
+}
+
+public int SteamWorks_OnClientGroupStatus(int authid, int groupid, bool isMember, bool isOfficer)
+{
+	
+	if (groupid != StringToInt(g_cGroupID32))
+		return;
+	
+	int iClient = GetUserFromAuthID(authid);	
+	
+	if (iClient == -1)
+		return;
+			
+	if (isMember || isOfficer)
+	{
+		InGroup[iClient] = true;
+		return;
+	}
+	
+	return;
+	
+}
+
+//In cases where Steamtools is also loaded and Steamworks fails to see the callback
+public int Steam_GroupStatusResult(int client, int groupAccountID, bool groupMember, bool groupOfficer)
+{
+	
+	if (groupAccountID != StringToInt(g_cGroupID32))
+		return;	
+	
+	if (client == -1)
+		return;
+			
+	if (groupMember || groupOfficer)
+	{
+		InGroup[client] = true;
+		return;
+	}
+	
+	return;
+	
+}
+
+public Action VoidCmd(int client, int args)
+{
+	//Void
+	return Plugin_Handled;
+}
+
+public int GetClientSeed(int client)
+{
+	if (InGroup[client])
+		return 2;
+	if (CheckCommandAccess(client, "ticketron_donor", ADMFLAG_RESERVATION))
+		return 1;
+		
+	return 0;
+}
+
+public int GetUserFromAuthID(int authid)
+{
+    for (int i = 1; i <= MaxClients; i++)
+    {
+        if(IsClientInGame(i)) {
+            char charauth[64];
+            GetClientAuthId(i, AuthId_Steam3, charauth, sizeof(charauth));
+               
+            char charauth2[64];
+            IntToString(authid, charauth2, sizeof(charauth2));
+           
+            if(StrContains(charauth, charauth2, false) > -1)
+            {
+                return i;
+            }
+        }
+    }
+    return -1;
 }
 
 stock bool Client_IsValid(int client, bool checkConnected=true)
