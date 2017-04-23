@@ -19,6 +19,7 @@
 
 #define Divider_Success "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Success) ̲̅){grey}-═══════ι▬▬"
 #define Divider_Failure "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Failure) ̲̅){grey}-═══════ι▬▬"
+#define Divider_Pagination "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅   %i{grey}/{lightseagreen}%i   ) ̲̅){grey}-═══════ι▬▬"
 
 #define PageLimit 5
 
@@ -60,7 +61,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	//Tickets table must be created before others due to foreign key references	
 	char TicketsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Tickets` ( `id` INT NOT NULL AUTO_INCREMENT , `host` VARBINARY(16) NOT NULL , `hostname` VARCHAR(64) NOT NULL , `breed` VARCHAR(32) NOT NULL , `target_name` VARCHAR(32) NULL DEFAULT NULL , `target_steamid` VARCHAR(32) NULL DEFAULT NULL , `target_ip` VARBINARY(16) NULL DEFAULT NULL, `reporter_name` VARCHAR(32) NOT NULL , `reporter_steamid` VARCHAR(32) NOT NULL , `reporter_ip` VARBINARY(16) NOT NULL, `reporter_seed` TINYINT(1) NOT NULL, `reason` TEXT NOT NULL , `handler_name` VARCHAR(32) NULL DEFAULT NULL , `handler_steamid` VARCHAR(32) NULL DEFAULT NULL , `handled` TINYINT(1) NOT NULL DEFAULT '0' , `data` TEXT NULL DEFAULT NULL, `time_reported` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , `time_handled` TIMESTAMP NULL DEFAULT NULL , `time_closed` TIMESTAMP NULL DEFAULT NULL , `closed` TINYINT(1) NOT NULL DEFAULT '0' , PRIMARY KEY (`id`), INDEX (`breed`), INDEX (`handler_steamid`), INDEX (`handled`), INDEX (`target_steamid`), INDEX (`target_ip`), INDEX (`reporter_steamid`), INDEX (`reporter_ip`), INDEX(`reporter_seed`), INDEX (`closed`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	char RepliesCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Replies` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `replier_name` VARCHAR(32) NOT NULL , `replier_steamid` VARCHAR(32) NOT NULL , `message` LONGTEXT NOT NULL , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`replier_steamid`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
-	char NotificationsCreateSQL[] = "CREATE TABLE `Ticketron_Notifications` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `message` TEXT NOT NULL , `internal_handled` TINYINT(1) NOT NULL DEFAULT '0' , `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`internal_handled`), INDEX (`external_handled`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
+	char NotificationsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Notifications` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `message` TEXT NOT NULL , `internal_handled` TINYINT(1) NOT NULL DEFAULT '0' , `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`internal_handled`), INDEX (`external_handled`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	
 	SQL_SetCharset(hDB, "utf8mb4");
 			
@@ -181,7 +182,7 @@ public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] er
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 	CReplyToCommand(client, "{grey}Your Ticket ID: {chartreuse}%i{grey}.", ticketid);
-	CReplyToCommand(client, "{grey}View Your Ticket Using {chartreuse}!ViewTicket #{grey}.");
+	CReplyToCommand(client, "{grey}View Your Ticket Using {chartreuse}!ViewTicket %i{grey}.", ticketid);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 }
@@ -286,7 +287,7 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 	CReplyToCommand(client, "");
 	CReplyToCommand(client, "{grey}Now Handling Ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "{grey}Unhandle The Ticket Using {chartreuse}!UnhandleTicket #{grey}.");
-	CReplyToCommand(client, "{grey}View The Ticket Using {chartreuse}!ViewTicket #{grey}.");
+	CReplyToCommand(client, "{grey}View The Ticket Using {chartreuse}!ViewTicket %i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 }
@@ -394,6 +395,17 @@ public Action MyTicketsCmd(int client, int args)
 	
 	int page = StringToInt(buffer);
 	
+	if (page < 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Page number cannot be negative");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return Plugin_Handled;
+	}
+	
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	
 	Format(Select_Query, sizeof Select_Query, "SELECT count(*) as count FROM `Ticketron_Tickets` WHERE `reporter_steamid` = '%s'", Client_SteamID64);
@@ -405,6 +417,8 @@ public Action MyTicketsCmd(int client, int args)
 	WritePackCell(pData, page);
 	
 	hDB.Query(SQL_OnMyTicketsCount, Select_Query, pData);
+	
+	return Plugin_Handled;
 }
 
 public void SQL_OnMyTicketsCount(Database db, DBResultSet results, const char[] error, any pData)
@@ -438,7 +452,7 @@ public void SQL_OnMyTicketsCount(Database db, DBResultSet results, const char[] 
 	{
 		CReplyToCommand(client, "%s", Divider_Success);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
+		CReplyToCommand(client, "{grey}Could not find any tickets :P");
 		CReplyToCommand(client, "%s", Divider_Success);
 		CReplyToCommand(client, "");
 		
@@ -449,7 +463,7 @@ public void SQL_OnMyTicketsCount(Database db, DBResultSet results, const char[] 
 	
 	WritePackCell(pData, count);
 	
-	int offset = (PageLimit * page);
+	int offset = (page != 1 && page != 0) ? ((page - 1) * PageLimit) : 0;
 	
 	char Select_Query[256], Client_SteamID64[32];
 	
@@ -488,7 +502,7 @@ public void SQL_OnMyTicketsSelect(Database db, DBResultSet results, const char[]
 	{
 		CReplyToCommand(client, "%s", Divider_Success);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
+		CReplyToCommand(client, "{grey}Could not find any tickets :P");
 		CReplyToCommand(client, "%s", Divider_Success);
 		CReplyToCommand(client, "");
 		
@@ -509,8 +523,7 @@ public void SQL_OnMyTicketsSelect(Database db, DBResultSet results, const char[]
 		CReplyToCommand(client, "{grey}#{lightseagreen}%i {grey}- {lightseagreen}%s", ticketid, timestamp);
 	}
 		
-	CReplyToCommand(client, "     {lightseagreen}%i{grey}/{lightseagreen}%i     ", page, totalpages);
-	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, Divider_Pagination, page+1, totalpages+1);
 	CReplyToCommand(client, "");
 	
 }
@@ -525,6 +538,16 @@ public Action TicketQueueCmd(int client, int args)
 	
 	int page = StringToInt(buffer);
 	
+	if (page < 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Page number cannot be negative");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return Plugin_Handled;
+	}
 	
 	Format(Select_Query, sizeof Select_Query, "SELECT count(*) as count FROM `Ticketron_Tickets` WHERE `handled` = 0");
 	
@@ -535,6 +558,8 @@ public Action TicketQueueCmd(int client, int args)
 	WritePackCell(pData, page);
 	
 	hDB.Query(SQL_OnTicketQueueCount, Select_Query, pData);
+	
+	return Plugin_Handled;
 }
 
 public void SQL_OnTicketQueueCount(Database db, DBResultSet results, const char[] error, any pData)
@@ -579,7 +604,7 @@ public void SQL_OnTicketQueueCount(Database db, DBResultSet results, const char[
 	
 	WritePackCell(pData, count);
 	
-	int offset = (PageLimit * page);
+	int offset = (page != 1 && page != 0) ? ((page - 1) * PageLimit) : 0;
 	
 	char Select_Query[256];
 		
@@ -637,8 +662,7 @@ public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char
 		CReplyToCommand(client, "{grey}#{lightseagreen}%i {grey}- {lightseagreen}%s", ticketid, timestamp);
 	}
 		
-	CReplyToCommand(client, "     {lightseagreen}%i{grey}/{lightseagreen}%i     ", page, totalpages);
-	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, Divider_Pagination, page+1, totalpages+1);
 	CReplyToCommand(client, "");
 	
 }
