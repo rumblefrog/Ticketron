@@ -7,6 +7,7 @@
 
 #include <sourcemod>
 #include <morecolors_store>
+#include <EventLogs>
 #undef REQUIRE_EXTENSIONS
 #include <SteamWorks>
 
@@ -56,20 +57,24 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	char NotificationsCreateSQL[] = "CREATE TABLE `Ticketron_Notifications` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `message` TEXT NOT NULL , `internal_handled` TINYINT(1) NOT NULL DEFAULT '0' , `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`internal_handled`), INDEX (`external_handled`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	
 	SQL_SetCharset(hDB, "utf8mb4");
-	
-	if(!SQL_FastQuery(hDB, TicketsCreateSQL))
-		return APLRes_Failure;
-		
-	if(!SQL_FastQuery(hDB, RepliesCreateSQL))
-		return APLRes_Failure;
-		
-	if(!SQL_FastQuery(hDB, NotificationsCreateSQL))
-		return APLRes_Failure;
+			
+	SQL_TQuery(hDB, OnTableCreate, TicketsCreateSQL, DBPrio_High);
+	SQL_TQuery(hDB, OnTableCreate, RepliesCreateSQL);
+	SQL_TQuery(hDB, OnTableCreate, NotificationsCreateSQL);
 	
 	RegPluginLibrary("Ticketron");
 	//TODO: Create Native
 	//CreateNative("Ticketron_ReplyMessage", NativeLogPlugin);
 	return APLRes_Success;
+}
+
+public void OnTableCreate(Handle owner, Handle hndl, const char[] error, any data)
+{
+	if (hndl == INVALID_HANDLE)
+	{
+		EL_LogPlugin(LOG_FATAL, "Unable to create table: %s", error);
+		SetFailState("Unable to create table: %s", error);
+	}
 }
 
 public void OnPluginStart()
@@ -106,126 +111,219 @@ public void OnPluginStart()
 public Action CreateTicketCmd(int client, int args)
 {
 	char buffer[2048];
-	
+		
+	ReplySource CmdOrigin = GetCmdReplySource();
 	GetCmdArg(1, buffer, sizeof buffer);
 	
-	int response = CreateTicket(client, buffer);
+	int buffer_len = strlen(buffer) * 2 + 1;
 	
-	if (response == -1)
-	{
-		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when creating the ticket. Please try again later.");
-		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
-	} else
-	{
-		CReplyToCommand(client, "%s", Divider_Success);
-		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Your Ticket ID: {chartreuse}%i{grey}.", response);
-		CReplyToCommand(client, "{lightseagreen}View Your Ticket Using {chartreuse}!ViewTicket #{grey}.");
-		CReplyToCommand(client, "%s", Divider_Success);
-		CReplyToCommand(client, "");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action HandleTicketCmd(int client, int args)
-{
-	char buffer[16];
-	int ticket;
-	
-	GetCmdArg(1, buffer, sizeof buffer);
-	ticket = StringToInt(buffer);
-	
-	bool response = HandleTicket(client, ticket);
-	
-	if (!response)
-	{
-		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. Please try again later.");
-		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
-	} else
-	{
-		CReplyToCommand(client, "%s", Divider_Success);
-		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Now Handling Ticket ID: {chartreuse}%i{grey}.", response);
-		CReplyToCommand(client, "{lightseagreen}Unhandle The Ticket Using {chartreuse}!UnhandleTicket #{grey}.");
-		CReplyToCommand(client, "{lightseagreen}View The Ticket Using {chartreuse}!ViewTicket #{grey}.");
-		CReplyToCommand(client, "%s", Divider_Success);
-		CReplyToCommand(client, "");
-	}
-	
-	return Plugin_Handled;
-
-}
-
-int CreateTicket(int client, const char[] reason)
-{
-	DBStatement Insert;
-	
-	char error[255], Client_Name[MAX_NAME_LENGTH], Client_SteamID64[32], Client_IP[45];
+	char Client_Name[MAX_NAME_LENGTH], Client_SteamID64[32], Client_IP[45], Escaped_Name[128];
+	char[] Escaped_Reason = new char[buffer_len];
+	char[] InsertQuery = new char[1024 + buffer_len];
 	
 	GetClientName(client, Client_Name, sizeof Client_Name);
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	GetClientIP(client, Client_IP, sizeof Client_IP);
 	
+	SQL_EscapeString(hDB, Client_Name, Escaped_Name, sizeof Escaped_Name);
+	SQL_EscapeString(hDB, buffer, Escaped_Reason, buffer_len);
 	
-	Insert = SQL_PrepareQuery(hDB, "INSERT INTO `Ticketron_Tickets` (`host`, `hostname`, `breed`, `reporter_name`, `reporter_steamid`, `reporter_ip`, `reason`) VALUES (?, ?, ?, ?, ?, ?, ?)", error, sizeof error);
+	Format(InsertQuery, 1024 + buffer_len, "INSERT INTO `Ticketron_Tickets` (`host`, `hostname`, `breed`, `reporter_name`, `reporter_steamid`, `reporter_ip`, `reason`) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s')", g_cIP, g_cHostname, g_cBreed, Escaped_Name, Client_SteamID64, Client_IP, Escaped_Reason);
 	
-	Insert.BindString(0, g_cIP, false);
-	Insert.BindString(1, g_cHostname, false);
-	Insert.BindString(2, g_cBreed, false);
-	Insert.BindString(3, Client_Name, false);
-	Insert.BindString(4, Client_SteamID64, false);
-	Insert.BindString(5, Client_IP, false);
-	Insert.BindString(6, reason, false);
+	DataPack pData = CreateDataPack();
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
 	
-	if (!SQL_Execute(Insert))
-		return -1;
-	else
-		return SQL_GetInsertId(Insert);
+	hDB.Query(SQL_OnTicketCreate, InsertQuery, pData);
+		
+	return Plugin_Handled;
 }
 
-bool HandleTicket(int client, int ticket)
+public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] error, any pData)
 {
-	DBStatement Update, Select;
+	ResetPack(pData);
 	
-	char error[255], Client_Name[MAX_NAME_LENGTH], Client_SteamID64[32];
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
 	
-	Select = SQL_PrepareQuery(hDB, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = ?", error, sizeof error);
-	Select.BindInt(0, ticket, false);
+	SetCmdReplySource(CmdOrigin);
 	
-	if(!SQL_Execute(Select))
-		return false;
-	else
+	if (results == null)
 	{
-		SQL_FetchRow(Select);
+		EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
 		
-		int handled = SQL_FetchInt(Select, 13);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Error when creating the ticket. Please try again later.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
 		
-		if (handled == 1)
-			return false;
+		return;
 	}
+	
+	int ticketid = results.InsertId;
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	CReplyToCommand(client, "{lightseagreen}Your Ticket ID: {chartreuse}%i{grey}.", ticketid);
+	CReplyToCommand(client, "{lightseagreen}View Your Ticket Using {chartreuse}!ViewTicket #{grey}.");
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+}
+
+public Action HandleTicketCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	char buffer[16], Select_Query[256];
+	int ticket;
+	
+	GetCmdArg(1, buffer, sizeof buffer);
+	ticket = StringToInt(buffer);
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = %i", ticket);
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, ticket);
+	
+	hDB.Query(SQL_OnTicketHandleSelect, Select_Query, pData);
+	
+	return Plugin_Handled;
+}
+
+public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		EL_LogPlugin(LOG_ERROR, "Unable to select row: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. Please try again later.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	results.FetchRow();
+	
+	if (results.FetchInt(13) == 1)
+	{
+		char Handler[MAX_NAME_LENGTH];
+		results.FetchString(11, Handler, sizeof Handler);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Ticket is currently being handled by {chartreuse}%s{grey}.", Handler);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	char UpdateQuery[512], Client_Name[MAX_NAME_LENGTH], Escaped_Name[128], Client_SteamID64[32];
 	
 	GetClientName(client, Client_Name, sizeof Client_Name);
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	
-	Update = SQL_PrepareQuery(hDB, "UPDATE `Ticketron_Tickets` SET `handler_name` = ?, `handler_steamid` = ?, `handled` = 1 WHERE `id` = ?", error, sizeof error);
+	db.Escape(Client_Name, Escaped_Name, sizeof Escaped_Name);
 	
-	Update.BindString(0, Client_Name, false);
-	Update.BindString(1, Client_SteamID64, false);
-	Update.BindInt(2, ticket, false);
+	Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Tickets` SET `handler_name` = '%s', `handler_steamid` = '%s', `handled` = 1 WHERE `id` = '%i'", Escaped_Name, Client_SteamID64, ticket);
 	
-	return SQL_Execute(Update);
+	db.Query(SQL_OnTicketHandleUpdate, UpdateQuery, pData);
+}
+
+public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. Please try again later.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	CReplyToCommand(client, "{lightseagreen}Now Handling Ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "{lightseagreen}Unhandle The Ticket Using {chartreuse}!UnhandleTicket #{grey}.");
+	CReplyToCommand(client, "{lightseagreen}View The Ticket Using {chartreuse}!ViewTicket #{grey}.");
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
 }
 
 public Action PollingTimer(Handle timer)
 {
+	char SelectQuery[512];
+	
+	Format(SelectQuery, sizeof SelectQuery, "SELECT n.`*`, t.`reporter_steamid` FROM `Ticketron_Notifications` n INNER JOIN `Ticketron_Tickets` t ON t.`id` = n.`ticket_id`");
+	
+	hDB.Query(SQL_OnPollingTimerSelect, SelectQuery);
+}
 
+public void SQL_OnPollingTimerSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	//Not going to log because it'd flood the database due to a repeated action
+	
+	if (results == null)
+		return;
+	
+	int NID;
+	int Ticket;
+	char Message[256], Client_SteamID64[32], Search_SteamID64[32], UpdateQuery[256];
+
+	while(results.FetchRow())
+	{
+		NID = results.FetchInt(0);
+		Ticket = results.FetchInt(1);
+		results.FetchString(2, Message, sizeof Message);
+		results.FetchString(6, Client_SteamID64, sizeof Client_SteamID64);
+		
+		for (int i = 1; i <= MaxClients; i++)
+		{
+			if(Client_IsValid(i))
+			{
+				GetClientAuthId(i, AuthId_SteamID64, Search_SteamID64, sizeof Search_SteamID64);
+				
+				if (StrEqual(Client_SteamID64, Search_SteamID64, false))
+				{
+					MoreColors_CPrintToChat(i, "{lightseagreen}Ticket #%i: {grey}%s", Ticket, Message);
+					
+					Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Notifications` SET `internal_handled` = 1 WHERE `id` = '%i'", NID);
+					db.Query(SQL_OnPollingTimerUpdate, UpdateQuery);
+				}
+			}
+		}
+	}
+}
+
+public void SQL_OnPollingTimerUpdate(Database db, DBResultSet results, const char[] error, any pData)
+{
+	//Not worrying about the result
 }
 
 public void OnConvarChanged(ConVar convar, const char[] oldValue, const char[] newValue)
@@ -245,4 +343,21 @@ public int SteamWorks_SteamServersConnected()
 	int octets[4];
 	SteamWorks_GetPublicIP(octets);
 	Format(g_cIP, sizeof(g_cIP), "%d.%d.%d.%d:%d", octets[0], octets[1], octets[2], octets[3], GetConVarInt(FindConVar("hostport")));
+}
+
+stock bool Client_IsValid(int client, bool checkConnected=true)
+{
+	if (client > 4096) {
+		client = EntRefToEntIndex(client);
+	}
+
+	if (client < 1 || client > MaxClients) {
+		return false;
+	}
+
+	if (checkConnected && !IsClientConnected(client)) {
+		return false;
+	}
+
+	return true;
 }
