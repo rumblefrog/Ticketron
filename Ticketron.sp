@@ -20,6 +20,8 @@
 #define Divider_Success "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Success) ̲̅){grey}-═══════ι▬▬"
 #define Divider_Failure "{grey}▬▬ι═══════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Failure) ̲̅){grey}-═══════ι▬▬"
 
+#define PageLimit 5
+
 //<!-- Main -->
 Database hDB;
 
@@ -94,6 +96,7 @@ public void OnPluginStart()
 	RegAdminCmd("sm_ticket", CreateTicketCmd, 0, "Creates ticket");
 	RegAdminCmd("sm_handle", HandleTicketCmd, ADMFLAG_GENERIC, "Handles ticket");
 	RegAdminCmd("sm_unhandle", UnhandleTicketCmd, ADMFLAG_GENERIC, "Unhandles ticket");
+	RegAdminCmd("sm_mytickets", MyTicketsCmd, 0, "View my tickets");
 	
 	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
 	
@@ -165,7 +168,7 @@ public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] er
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when creating the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error when creating the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -176,8 +179,8 @@ public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] er
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
-	CReplyToCommand(client, "{lightseagreen}Your Ticket ID: {chartreuse}%i{grey}.", ticketid);
-	CReplyToCommand(client, "{lightseagreen}View Your Ticket Using {chartreuse}!ViewTicket #{grey}.");
+	CReplyToCommand(client, "{grey}Your Ticket ID: {chartreuse}%i{grey}.", ticketid);
+	CReplyToCommand(client, "{grey}View Your Ticket Using {chartreuse}!ViewTicket #{grey}.");
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 }
@@ -220,7 +223,7 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error when assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -236,7 +239,7 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Ticket is currently being handled by {chartreuse}%s{grey}.", Handler);
+		CReplyToCommand(client, "{grey}Ticket is currently being handled by {chartreuse}%s{grey}.", Handler);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -271,7 +274,7 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error when assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -280,9 +283,9 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
-	CReplyToCommand(client, "{lightseagreen}Now Handling Ticket ID: {chartreuse}%i{grey}.", ticket);
-	CReplyToCommand(client, "{lightseagreen}Unhandle The Ticket Using {chartreuse}!UnhandleTicket #{grey}.");
-	CReplyToCommand(client, "{lightseagreen}View The Ticket Using {chartreuse}!ViewTicket #{grey}.");
+	CReplyToCommand(client, "{grey}Now Handling Ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "{grey}Unhandle The Ticket Using {chartreuse}!UnhandleTicket #{grey}.");
+	CReplyToCommand(client, "{grey}View The Ticket Using {chartreuse}!ViewTicket #{grey}.");
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 }
@@ -326,16 +329,17 @@ public void SQL_OnTicketUnhandleSelect(Database db, DBResultSet results, const c
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when authorizing the action. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error when authorizing the action. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
 		return;
+		
 	} else if (results.RowCount == 0)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Insufficient permission while attempting to unhandle.");
+		CReplyToCommand(client, "{grey}Insufficient permission while attempting to unhandle.");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -365,7 +369,7 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
-		CReplyToCommand(client, "{lightseagreen}Error when unassigning the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "{grey}Error when unassigning the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "");
 		
@@ -374,9 +378,140 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
-	CReplyToCommand(client, "{lightseagreen}Now Unhandled Ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "{grey}Now Unhandled Ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
+}
+
+public Action MyTicketsCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	
+	char Client_SteamID64[32], Select_Query[256], buffer[16];
+	
+	GetCmdArg(1, buffer, sizeof buffer);
+	
+	int page = StringToInt(buffer);
+	
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT count(*) as count FROM `Ticketron_Tickets` WHERE `reporter_steamid` = '%s'", Client_SteamID64);
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, page);
+	
+	hDB.Query(SQL_OnMyTicketsCount, Select_Query, pData);
+}
+
+public void SQL_OnMyTicketsCount(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int page = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+		
+	}
+	
+	results.FetchRow();
+	int count = results.FetchInt(0);
+	
+	if (count == 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	ResetPack(pData);
+	
+	WritePackCell(pData, count);
+	
+	int offset = (PageLimit * page);
+	
+	char Select_Query[256], Client_SteamID64[32];
+	
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `reporter_steamid` = '%s' ORDER BY `id` DESC LIMIT %i OFFSET %i", PageLimit, offset);
+	
+	db.Query(SQL_OnMyTicketsSelect, Select_Query, pData);
+}
+
+public void SQL_OnMyTicketsSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int page = ReadPackCell(pData);
+	int count = ReadPackCell(pData);
+	int totalpages = RoundToCeil(view_as<float>(count / PageLimit));
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+		
+	} else if (results.RowCount == 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	int ticketid;
+	char timestamp[64];
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	
+	while (results.FetchRow())
+	{
+		ticketid = results.FetchInt(0);
+		results.FetchString(17, timestamp, sizeof timestamp);
+		
+		CReplyToCommand(client, "{grey}#{lightseagreen}%i {grey}- {lightseagreen}%s", ticketid, timestamp);
+	}
+		
+	CReplyToCommand(client, "     {lightseagreen}%i{grey}/{lightseagreen}%i     ", page, totalpages);
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	
 }
 
 public Action PollingTimer(Handle timer)
