@@ -58,7 +58,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 		return APLRes_Failure;
 	
 	//Tickets table must be created before others due to foreign key references	
-	char TicketsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Tickets` ( `id` INT NOT NULL AUTO_INCREMENT , `host` VARBINARY(16) NOT NULL , `hostname` VARCHAR(64) NOT NULL , `breed` VARCHAR(32) NOT NULL , `target_name` VARCHAR(32) NULL DEFAULT NULL , `target_steamid` VARCHAR(32) NULL DEFAULT NULL , `target_ip` VARBINARY(16) NULL DEFAULT NULL, `reporter_name` VARCHAR(32) NOT NULL , `reporter_steamid` VARCHAR(32) NOT NULL , `reporter_ip` VARBINARY(16) NOT NULL, `reason` TEXT NOT NULL , `handler_name` VARCHAR(32) NULL DEFAULT NULL , `handler_steamid` VARCHAR(32) NULL DEFAULT NULL , `handled` TINYINT(1) NOT NULL DEFAULT '0' , `insignia` VARCHAR(32) NULL DEFAULT NULL , `time_reported` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , `time_handled` TIMESTAMP NULL DEFAULT NULL , `time_closed` TIMESTAMP NULL DEFAULT NULL , `closed` TINYINT(1) NOT NULL DEFAULT '0' , PRIMARY KEY (`id`), INDEX (`breed`), INDEX (`handler_steamid`), INDEX (`handled`), INDEX (`target_steamid`), INDEX (`target_ip`), INDEX (`reporter_steamid`), INDEX (`reporter_ip`), INDEX (`insignia`), INDEX (`closed`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
+	char TicketsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Tickets` ( `id` INT NOT NULL AUTO_INCREMENT , `host` VARBINARY(16) NOT NULL , `hostname` VARCHAR(64) NOT NULL , `breed` VARCHAR(32) NOT NULL , `target_name` VARCHAR(32) NULL DEFAULT NULL , `target_steamid` VARCHAR(32) NULL DEFAULT NULL , `target_ip` VARBINARY(16) NULL DEFAULT NULL, `reporter_name` VARCHAR(32) NOT NULL , `reporter_steamid` VARCHAR(32) NOT NULL , `reporter_ip` VARBINARY(16) NOT NULL, `reporter_seed` TINYINT(1) NOT NULL, `reason` TEXT NOT NULL , `handler_name` VARCHAR(32) NULL DEFAULT NULL , `handler_steamid` VARCHAR(32) NULL DEFAULT NULL , `handled` TINYINT(1) NOT NULL DEFAULT '0' , `data` TEXT NULL DEFAULT NULL, `time_reported` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , `time_handled` TIMESTAMP NULL DEFAULT NULL , `time_closed` TIMESTAMP NULL DEFAULT NULL , `closed` TINYINT(1) NOT NULL DEFAULT '0' , PRIMARY KEY (`id`), INDEX (`breed`), INDEX (`handler_steamid`), INDEX (`handled`), INDEX (`target_steamid`), INDEX (`target_ip`), INDEX (`reporter_steamid`), INDEX (`reporter_ip`), INDEX(`reporter_seed`), INDEX (`closed`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	char RepliesCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Replies` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `replier_name` VARCHAR(32) NOT NULL , `replier_steamid` VARCHAR(32) NOT NULL , `message` LONGTEXT NOT NULL , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`replier_steamid`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	char NotificationsCreateSQL[] = "CREATE TABLE `Ticketron_Notifications` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `message` TEXT NOT NULL , `internal_handled` TINYINT(1) NOT NULL DEFAULT '0' , `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`internal_handled`), INDEX (`external_handled`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	
@@ -97,6 +97,7 @@ public void OnPluginStart()
 	RegAdminCmd("sm_handle", HandleTicketCmd, ADMFLAG_GENERIC, "Handles ticket");
 	RegAdminCmd("sm_unhandle", UnhandleTicketCmd, ADMFLAG_GENERIC, "Unhandles ticket");
 	RegAdminCmd("sm_mytickets", MyTicketsCmd, 0, "View my tickets");
+	RegAdminCmd("sm_ticketqueue", TicketQueueCmd, 0, "View unhandled tickets");
 	
 	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
 	
@@ -378,7 +379,7 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 	
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
-	CReplyToCommand(client, "{grey}Now Unhandled Ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "{grey}Unhandled Ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
 	CReplyToCommand(client, "");
 }
@@ -454,7 +455,7 @@ public void SQL_OnMyTicketsCount(Database db, DBResultSet results, const char[] 
 	
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	
-	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `reporter_steamid` = '%s' ORDER BY `id` DESC LIMIT %i OFFSET %i", PageLimit, offset);
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `reporter_steamid` = '%s' ORDER BY `id` DESC LIMIT %i OFFSET %i", Client_SteamID64, PageLimit, offset);
 	
 	db.Query(SQL_OnMyTicketsSelect, Select_Query, pData);
 }
@@ -503,7 +504,135 @@ public void SQL_OnMyTicketsSelect(Database db, DBResultSet results, const char[]
 	while (results.FetchRow())
 	{
 		ticketid = results.FetchInt(0);
-		results.FetchString(17, timestamp, sizeof timestamp);
+		results.FetchString(16, timestamp, sizeof timestamp);
+		
+		CReplyToCommand(client, "{grey}#{lightseagreen}%i {grey}- {lightseagreen}%s", ticketid, timestamp);
+	}
+		
+	CReplyToCommand(client, "     {lightseagreen}%i{grey}/{lightseagreen}%i     ", page, totalpages);
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	
+}
+
+public Action TicketQueueCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	
+	char Select_Query[256], buffer[16];
+	
+	GetCmdArg(1, buffer, sizeof buffer);
+	
+	int page = StringToInt(buffer);
+	
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT count(*) as count FROM `Ticketron_Tickets` WHERE `handled` = 0");
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, page);
+	
+	hDB.Query(SQL_OnTicketQueueCount, Select_Query, pData);
+}
+
+public void SQL_OnTicketQueueCount(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int page = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+		
+	}
+	
+	results.FetchRow();
+	int count = results.FetchInt(0);
+	
+	if (count == 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	ResetPack(pData);
+	
+	WritePackCell(pData, count);
+	
+	int offset = (PageLimit * page);
+	
+	char Select_Query[256];
+		
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `handled` = 0 ORDER BY `id`, `reporter_seed` DESC LIMIT %i OFFSET %i", PageLimit, offset);
+	
+	db.Query(SQL_OnTicketQueueSelect, Select_Query, pData);
+}
+
+public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int page = ReadPackCell(pData);
+	int count = ReadPackCell(pData);
+	int totalpages = RoundToCeil(view_as<float>(count / PageLimit));
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "");
+		
+		return;
+		
+	} else if (results.RowCount == 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "");
+		
+		return;
+	}
+	
+	int ticketid;
+	char timestamp[64];
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "");
+	
+	while (results.FetchRow())
+	{
+		ticketid = results.FetchInt(0);
+		results.FetchString(16, timestamp, sizeof timestamp);
 		
 		CReplyToCommand(client, "{grey}#{lightseagreen}%i {grey}- {lightseagreen}%s", ticketid, timestamp);
 	}
