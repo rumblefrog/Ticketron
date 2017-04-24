@@ -16,7 +16,7 @@ A fully-featured ticket support system
 
 # Prerequisites
 
-- [EventLogs] (https://github.com/RumbleFrog/EventLogs/releases)
+- [EventLogs](https://github.com/RumbleFrog/EventLogs/releases)
 - [SteamWorks Extension](https://users.alliedmods.net/~kyles/builds/SteamWorks/)
 
 # Native
