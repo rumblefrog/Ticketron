@@ -3,18 +3,21 @@ A fully-featured ticket support system
 
 # Convars
 
-**sm_eventlogs_chat** Enable Chat Logging [Default: 1.0] (Min: 0.0) (Max: 1.0)
+**sm_ticketron_rate** Ticketron rate at which it fetches for new notifcations [Default: **10.0**] (Min: 1.0)
 
-**sm_eventlogs_plugin** Enable Plugin Logging for Developers [Default: 1.0] (Min: 0.0) (Max: 1.0)
+**sm_ticketron_breed** Ticketron external breed identifier [Default: **global**]
+
+**sm_ticketron_groupid32** Steam Group 32-Bit ID (Used for ticket priority) [Default: **0**]
 
 # Installation
 
-1. Extract **EventsLog.smx** to **/addons/sourcemod/plugins**
-2. Create **eventlogs** entry in your database.cfg
+1. Extract **Ticketron.smx** to **/addons/sourcemod/plugins**
+2. Create **ticketron** entry in your database.cfg
 
-# Optional
+# Prerequisites
 
-- [SteamTools Extension](https://builds.limetech.io/?p=steamtools)
+- [EventLogs] (https://github.com/RumbleFrog/EventLogs/releases)
+- [SteamWorks Extension](https://users.alliedmods.net/~kyles/builds/SteamWorks/)
 
 # Native
 

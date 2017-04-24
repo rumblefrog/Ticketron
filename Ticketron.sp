@@ -724,23 +724,27 @@ public void SQL_OnViewTicket(Database db, DBResultSet results, const char[] erro
 		return;
 	}
 	
-	char hostname[64], breed[32], target_name[32], reporter_name[32], reason[2048], handler_name[32], timestamp[32], Select_Query[512];
+	char hostname[64], breed[32], target_name[32], reporter_name[32], reporter_steamid[32], reason[2048], handler_name[32], handler_steamid[32], timestamp[32], Select_Query[512];
 	
 	results.FetchRow();
 	results.FetchString(2, hostname, sizeof hostname);
 	results.FetchString(3, breed, sizeof breed);
 	results.FetchString(4, target_name, sizeof target_name);
 	results.FetchString(7, reporter_name, sizeof reporter_name);
+	results.FetchString(8, reporter_steamid, sizeof reporter_steamid);
 	results.FetchString(11, reason, sizeof reason);
 	results.FetchString(12, handler_name, sizeof handler_name);
+	results.FetchString(13, handler_steamid, sizeof handler_steamid);
 	results.FetchString(16, timestamp, sizeof timestamp);
 	
 	WritePackString(pData, hostname);
 	WritePackString(pData, breed);
 	WritePackString(pData, target_name);
 	WritePackString(pData, reporter_name);
+	WritePackString(pData, reporter_steamid);
 	WritePackString(pData, reason);
 	WritePackString(pData, handler_name);
+	WritePackString(pData, handler_steamid);
 	WritePackString(pData, timestamp);
 	
 	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Replies` WHERE `ticket_id` = '%i' ORDER BY id", ticket);
@@ -750,7 +754,7 @@ public void SQL_OnViewTicket(Database db, DBResultSet results, const char[] erro
 
 public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char[] error, any pData)
 {
-	char hostname[64], breed[32], target_name[32], reporter_name[32], reason[2048], handler_name[32], timestamp[32];
+	char hostname[64], breed[32], target_name[32], reporter_name[32], reporter_steamid[32], reason[2048], handler_name[32], handler_steamid[32], timestamp[32];
 	
 	ResetPack(pData);
 	
@@ -761,8 +765,10 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 	ReadPackString(pData, breed, sizeof breed);
 	ReadPackString(pData, target_name, sizeof target_name);
 	ReadPackString(pData, reporter_name, sizeof reporter_name);
+	ReadPackString(pData, reporter_steamid, sizeof reporter_steamid);
 	ReadPackString(pData, reason, sizeof reason);
 	ReadPackString(pData, handler_name, sizeof handler_name);
+	ReadPackString(pData, handler_steamid, sizeof handler_steamid);
 	ReadPackString(pData, timestamp, sizeof timestamp);
 	
 	SetCmdReplySource(CmdOrigin);
@@ -787,14 +793,15 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 		CReplyToCommand(client, "{grey}Handler: {chartreuse}%s", handler_name);
 	CReplyToCommand(client, "{grey}Message: {chartreuse}%s", reason);
 	
-	char Replier_Name[32], Message[1024];
+	char Replier_Name[32], Replier_SteamID[32], Message[1024];
 	
 	while(results.FetchRow())
 	{
 		results.FetchString(2, Replier_Name, sizeof Replier_Name);
+		results.FetchString(3, Replier_SteamID, sizeof Replier_SteamID);
 		results.FetchString(4, Message, sizeof Message);
 			
-		if (StrEqual(Replier_Name, reporter_name))
+		if (StrEqual(Replier_SteamID, reporter_steamid))
 			CReplyToCommand(client, "{community}%s {white}: {gray}%s", Replier_Name, Message);
 		else
 			CReplyToCommand(client, "{crimson}%s {white}: {gray}%s", Replier_Name, Message);
