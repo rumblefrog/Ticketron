@@ -12,7 +12,6 @@
 #include <SteamWorks>
 #include <steamtools>
 
-
 #pragma newdecls required
 
 #define Divider_Left "▬▬▬▬ι══════════════ﺤ(̲̅ ̲̅(̲̅"
