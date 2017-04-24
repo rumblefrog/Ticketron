@@ -140,9 +140,7 @@ public Action CreateTicketCmd(int client, int args)
 	if (strlen(buffer) < 15)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Please add some details");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return Plugin_Handled;
@@ -187,9 +185,7 @@ public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] er
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while creating the ticket. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -198,10 +194,8 @@ public void SQL_OnTicketCreate(Database db, DBResultSet results, const char[] er
 	int ticketid = results.InsertId;
 	
 	CReplyToCommand(client, "%s", Divider_Success);
-	CReplyToCommand(client, " ");
 	CReplyToCommand(client, "{grey}Your ticket ID: {chartreuse}%i{grey}.", ticketid);
 	CReplyToCommand(client, "{grey}View your ticket using {chartreuse}!ViewTicket %i{grey}.", ticketid);
-	CReplyToCommand(client, " ");
 	CReplyToCommand(client, "%s", Divider_Success);
 }
 
@@ -242,9 +236,7 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select row: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -253,9 +245,7 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 	if (results.RowCount == 0)
 	{		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Insufficient permission or the ticket does not exist.");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -269,9 +259,7 @@ public void SQL_OnTicketHandleSelect(Database db, DBResultSet results, const cha
 		results.FetchString(12, Handler, sizeof Handler);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Ticket is currently being handled by {chartreuse}%s{grey}.", Handler);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -304,20 +292,16 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while assigning the ticket. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
 	}
 	
 	CReplyToCommand(client, "%s", Divider_Success);
-	CReplyToCommand(client, " ");
 	CReplyToCommand(client, "{grey}Now handling ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "{grey}Unhandle the ticket using {chartreuse}!UnhandleTicket #{grey}.");
 	CReplyToCommand(client, "{grey}View the ticket using {chartreuse}!ViewTicket %i{grey}.", ticket);
-	CReplyToCommand(client, " ");
 	CReplyToCommand(client, "%s", Divider_Success);
 	
 	char Client_Name[MAX_NAME_LENGTH];
@@ -365,9 +349,7 @@ public void SQL_OnTicketUnhandleSelect(Database db, DBResultSet results, const c
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while authorizing the action. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -375,9 +357,7 @@ public void SQL_OnTicketUnhandleSelect(Database db, DBResultSet results, const c
 	} else if (results.RowCount == 0)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Insufficient permission while attempting to unhandle.");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -405,18 +385,14 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to insert row: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while unassigning the ticket. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
 	}
 	
 	CReplyToCommand(client, "%s", Divider_Success);
-	CReplyToCommand(client, " ");
 	CReplyToCommand(client, "{grey}Unhandled ticket ID: {chartreuse}%i{grey}.", ticket);
-	CReplyToCommand(client, " ");
 	CReplyToCommand(client, "%s", Divider_Success);
 	
 	char Client_Name[MAX_NAME_LENGTH];
@@ -439,9 +415,7 @@ public Action MyTicketsCmd(int client, int args)
 	if (page < 0)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Page number cannot be negative");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return Plugin_Handled;
@@ -477,9 +451,7 @@ public void SQL_OnMyTicketsCount(Database db, DBResultSet results, const char[] 
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -492,9 +464,7 @@ public void SQL_OnMyTicketsCount(Database db, DBResultSet results, const char[] 
 	if (count == 0)
 	{
 		CReplyToCommand(client, "%s", Divider_Success);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Could not find any tickets :P");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Success);
 		
 		return;
@@ -532,9 +502,7 @@ public void SQL_OnMyTicketsSelect(Database db, DBResultSet results, const char[]
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -542,9 +510,7 @@ public void SQL_OnMyTicketsSelect(Database db, DBResultSet results, const char[]
 	} else if (results.RowCount == 0)
 	{
 		CReplyToCommand(client, "%s", Divider_Success);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Could not find any tickets :P");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Success);
 		
 		return;
@@ -554,7 +520,6 @@ public void SQL_OnMyTicketsSelect(Database db, DBResultSet results, const char[]
 	char timestamp[64];
 	
 	CReplyToCommand(client, "%s", Divider_Success);
-	CReplyToCommand(client, "");
 	
 	while (results.FetchRow())
 	{
@@ -565,7 +530,6 @@ public void SQL_OnMyTicketsSelect(Database db, DBResultSet results, const char[]
 	}
 		
 	CReplyToCommand(client, Divider_Pagination, page+1, totalpages+1);
-	CReplyToCommand(client, "");
 	
 }
 
@@ -582,9 +546,7 @@ public Action TicketQueueCmd(int client, int args)
 	if (page < 0)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Page number cannot be negative");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return Plugin_Handled;
@@ -618,9 +580,7 @@ public void SQL_OnTicketQueueCount(Database db, DBResultSet results, const char[
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -633,9 +593,7 @@ public void SQL_OnTicketQueueCount(Database db, DBResultSet results, const char[
 	if (count == 0)
 	{
 		CReplyToCommand(client, "%s", Divider_Success);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Success);
 		
 		return;
@@ -671,9 +629,7 @@ public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -681,9 +637,7 @@ public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char
 	} else if (results.RowCount == 0)
 	{
 		CReplyToCommand(client, "%s", Divider_Success);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Success);
 		
 		return;
@@ -693,7 +647,6 @@ public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char
 	char timestamp[64];
 	
 	CReplyToCommand(client, "%s", Divider_Success);
-	CReplyToCommand(client, " ");
 	
 	while (results.FetchRow())
 	{
@@ -703,7 +656,6 @@ public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char
 		CReplyToCommand(client, "{grey}#{lightseagreen}%i {grey}- {lightseagreen}%s", ticketid, timestamp);
 	}
 		
-	CReplyToCommand(client, " ");	
 	CReplyToCommand(client, Divider_Pagination, page+1, totalpages+1);
 }
 
@@ -720,9 +672,7 @@ public Action ViewTicketCmd(int client, int args)
 	if (ticket < 1)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return Plugin_Handled;
@@ -759,9 +709,7 @@ public void SQL_OnViewTicket(Database db, DBResultSet results, const char[] erro
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to view ticket: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while selecting the ticket. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -770,9 +718,7 @@ public void SQL_OnViewTicket(Database db, DBResultSet results, const char[] erro
 	if (results.RowCount == 0)
 	{		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Ticket does not exist.");
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
@@ -826,16 +772,13 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to view ticket: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "{grey}Error while selecting the ticket. RID: {chartreuse}%i{grey}.", rid);
-		CReplyToCommand(client, " ");
 		CReplyToCommand(client, "%s", Divider_Failure);
 		
 		return;
 	}
 	
 	CReplyToCommand(client, "%s", Divider_Success);
-	CReplyToCommand(client, " ");
 	CReplyToCommand(client, "{grey}Overview: #{chartreuse}%i {grey}| {chartreuse}%s {grey}| {chartreuse}%s {grey}| {chartreuse}%s", ticket, hostname, breed, timestamp);
 	if (target_name[0])
 		CReplyToCommand(client, "{grey}Target: {chartreuse}%s", target_name);
@@ -857,7 +800,6 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 			CReplyToCommand(client, "{crimson}%s {white}: {gray}%s", Replier_Name, Message);
 	}
 	
-	CReplyToCommand(client, " ");
 	CReplyToCommand(client, "%s", Divider_Success);
 }
 
@@ -881,10 +823,8 @@ public Action ReplyTicketCmd(int client, int args)
 	if (ticket < 1)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		
 		return Plugin_Handled;
 	}
@@ -892,10 +832,8 @@ public Action ReplyTicketCmd(int client, int args)
 	if (strlen(Message) < 5)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		CReplyToCommand(client, "{grey}Please add some details");
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		
 		return Plugin_Handled;
 	}
@@ -929,10 +867,8 @@ public void SQL_OnReplyTicketSelect(Database db, DBResultSet results, const char
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to reply to ticket: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		CReplyToCommand(client, "{grey}Error while replying to the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		
 		return;
 	}
@@ -940,10 +876,8 @@ public void SQL_OnReplyTicketSelect(Database db, DBResultSet results, const char
 	if (results.RowCount == 0)
 	{		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		CReplyToCommand(client, "{grey}Insufficient permission or the ticket does not exist.");
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		
 		return;
 	}
@@ -989,20 +923,16 @@ public void SQL_OnReplyTicketInsert(Database db, DBResultSet results, const char
 		int rid = EL_LogPlugin(LOG_ERROR, "Unable to reply to ticket: %s", error);
 		
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		CReplyToCommand(client, "{grey}Error while replying to the ticket. RID: {chartreuse}%i{grey}.", rid);
 		CReplyToCommand(client, "%s", Divider_Failure);
-		CReplyToCommand(client, "");
 		
 		return;
 	}
 	
 	CReplyToCommand(client, "%s", Divider_Success);
-	CReplyToCommand(client, "");
 	CReplyToCommand(client, "{grey}Replied to ticket ID: {chartreuse}%i{grey}.", ticket);
 	CReplyToCommand(client, "{grey}View the ticket ising {chartreuse}!ViewTicket %i{grey}.", ticket);
 	CReplyToCommand(client, "%s", Divider_Success);
-	CReplyToCommand(client, "");
 	
 	char Client_Name[MAX_NAME_LENGTH];
 	ReadPackString(pData, Client_Name, sizeof Client_Name);
