@@ -67,9 +67,9 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	
 	SQL_SetCharset(hDB, "utf8mb4");
 			
-	SQL_TQuery(hDB, OnTableCreate, TicketsCreateSQL, DBPrio_High);
-	SQL_TQuery(hDB, OnTableCreate, RepliesCreateSQL);
-	SQL_TQuery(hDB, OnTableCreate, NotificationsCreateSQL);
+	hDB.Query(OnTableCreate, TicketsCreateSQL, _, DBPrio_High);
+	hDB.Query(OnTableCreate, RepliesCreateSQL);
+	hDB.Query( OnTableCreate, NotificationsCreateSQL);
 	
 	RegPluginLibrary("Ticketron");
 
@@ -78,9 +78,9 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	return APLRes_Success;
 }
 
-public void OnTableCreate(Handle owner, Handle hndl, const char[] error, any data)
+public void OnTableCreate(Database db, DBResultSet results, const char[] error, any pData)
 {
-	if (hndl == INVALID_HANDLE)
+	if (results == null)
 	{
 		EL_LogPlugin(LOG_FATAL, "Unable to create table: %s", error);
 		SetFailState("Unable to create table: %s", error);
