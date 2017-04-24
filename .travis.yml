@@ -17,20 +17,23 @@ before_script:
     - SMPACKAGE="https://www.sourcemod.net/smdrop/$SMVERSION/$SMLATEST"
     - wget $SMPACKAGE
     - tar -xzf $(basename "$SMPACKAGE")
-    - cp EventLogs.sp addons/sourcemod/scripting/
+    - cp Ticketron.sp addons/sourcemod/scripting/
+    - cp include/SteamWorks.inc addons/sourcemod/scripting/include
     - cp include/steamtools.inc addons/sourcemod/scripting/include
-    - cp include/EventLogs.inc addons/sourcemod/scripting/include/
+    - cp include/morecolors_store.inc addons/sourcemod/scripting/include
+    - cp include/Ticketron.inc addons/sourcemod/scripting/include
+    - cp include/EventLogs.inc addons/sourcemod/scripting/include
     - cd addons/sourcemod/scripting/
     - chmod +x spcomp
     - chmod +x compile.sh
     
 script: 
-    - ./compile.sh EventLogs.sp   
+    - ./compile.sh Ticketron.sp   
   
 deploy:
   provider: releases
   api_key: "$githubkey"
-  file: "$TRAVIS_BUILD_DIR/addons/sourcemod/scripting/compiled/EventLogs.smx"
+  file: "$TRAVIS_BUILD_DIR/addons/sourcemod/scripting/compiled/Ticketron.smx"
   skip_cleanup: true
   on:
     tags: true
