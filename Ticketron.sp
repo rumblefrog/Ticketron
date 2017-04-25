@@ -993,7 +993,7 @@ public Action CloseTicketCmd(int client, int args)
 		return Plugin_Handled;
 	}
 	
-	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = '%i' AND `closed` = 0 AND (`reporter_steamid` = '%s' OR `handler_steamid` = '%s')", Client_SteamID64, Client_SteamID64);
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = '%i' AND `closed` = 0 AND (`reporter_steamid` = '%s' OR `handler_steamid` = '%s')", ticket, Client_SteamID64, Client_SteamID64);
 	
 	DataPack pData = CreateDataPack();
 	
@@ -1049,7 +1049,7 @@ public void SQL_OnCloseTicketSelect(Database db, DBResultSet results, const char
 	
 	WritePackString(pData, Client_Name);
 	
-	Format(Update_Query, sizeof Update_Query, "UPDATE `Ticketron_Replies` SET `closed` = 1, `time_closed` = CURRENT_TIMESTAMP() WHERE `id` = '%i'", ticket);
+	Format(Update_Query, sizeof Update_Query, "UPDATE `Ticketron_Tickets` SET `closed` = 1, `time_closed` = CURRENT_TIMESTAMP() WHERE `id` = '%i'", ticket);
 	
 	db.Query(SQL_OnCloseTicketUpdate, Update_Query, pData);
 }
