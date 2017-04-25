@@ -47,6 +47,8 @@ SOFTWARE.
 
 #define PageLimit 5
 
+#define MaxTimeouts 10
+
 //<!-- Main -->
 Database hDB;
 
@@ -62,6 +64,7 @@ float g_fPollingRate = 10.0;
 Handle g_hPollingTimer;
 
 int IID = -1;
+int g_iTimeout;
 
 //<!--- ConVars --->
 ConVar cPollingRate;
@@ -1153,7 +1156,13 @@ public void SQL_OnPollingTimerSelect(Database db, DBResultSet results, const cha
 
 public void SQL_OnPollingTimerUpdate(Database db, DBResultSet results, const char[] error, any pData)
 {
-	//Not worrying about the result
+	if (results = null)
+	{
+		if (g_iTimeOut >= MaxTimeouts)
+			KillTimer(g_hPollingTimer);
+		else
+			g_iTimeout++;
+	}
 }
 
 public int NativeAddNotification(Handle plugin, int numParams)
