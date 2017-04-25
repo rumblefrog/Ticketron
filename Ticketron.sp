@@ -128,6 +128,7 @@ public void OnPluginStart()
 	RegAdminCmd("sm_ticketqueue", TicketQueueCmd, 0, "View unhandled tickets");
 	RegAdminCmd("sm_viewticket", ViewTicketCmd, 0, "View ticket details");
 	RegAdminCmd("sm_replyticket", ReplyTicketCmd, 0, "Reply to ticket");
+	RegAdminCmd("sm_closeticket", CloseTicketCmd, 0, "Close a ticket");
 	
 	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
 	RegAdminCmd("ticketron_admin", VoidCmd, ADMFLAG_GENERIC, "Ticketron Admin Permission Check");
@@ -575,7 +576,7 @@ public Action TicketQueueCmd(int client, int args)
 		return Plugin_Handled;
 	}
 	
-	Format(Select_Query, sizeof Select_Query, "SELECT count(*) as count FROM `Ticketron_Tickets` WHERE `handled` = 0");
+	Format(Select_Query, sizeof Select_Query, "SELECT count(*) as count FROM `Ticketron_Tickets` WHERE `handled` = 0 AND `closed` = 0");
 	
 	DataPack pData = CreateDataPack();
 	
@@ -968,9 +969,123 @@ public void SQL_OnReplyTicketInsert(Database db, DBResultSet results, const char
 	ReadPackString(pData, Client_Name, sizeof Client_Name);
 	
 	if (!isOwn)
-		Ticketron_AddNotification(ticket, false, "%s Replied to your ticket", Client_Name);
+		Ticketron_AddNotification(ticket, false, "%s replied to your ticket", Client_Name);
 	else
-		Ticketron_AddNotification(ticket, true, "Got a reply from user");
+		Ticketron_AddNotification(ticket, true, "User replied to the ticket");
+}
+
+public Action CloseTicketCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	char buffer[16], Select_Query[256], Client_SteamID64[32];
+	int ticket;
+	
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	ticket = StringToInt(buffer);
+	
+	if (ticket < 1)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return Plugin_Handled;
+	}
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = '%i' AND `closed` = 0 AND (`reporter_steamid` = '%s' OR `handler_steamid` = '%s')", Client_SteamID64, Client_SteamID64);
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, ticket);
+	
+	hDB.Query(SQL_OnCloseTicketSelect, Select_Query, pData);
+	
+	return Plugin_Handled;
+}
+
+public void SQL_OnCloseTicketSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to close ticket: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Error while closing the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return;
+	}
+	
+	if (results.RowCount == 0)
+	{		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Insufficient permission or the ticket does not exist.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return;
+	}
+	
+	char Update_Query[512], Client_Name[MAX_NAME_LENGTH], Client_SteamID64[32], Search_ID[32];
+	
+	results.FetchRow();
+	results.FetchString(8, Search_ID, sizeof Search_ID);
+	
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	GetClientName(client, Client_Name, sizeof Client_Name);
+	
+	int isOwn = (StrEqual(Search_ID, Client_SteamID64)) ? 1 : 0;
+	WritePackCell(pData, isOwn);
+	
+	WritePackString(pData, Client_Name);
+	
+	Format(Update_Query, sizeof Update_Query, "UPDATE `Ticketron_Replies` SET `closed` = 1, `time_closed` = CURRENT_TIMESTAMP() WHERE `id` = '%i'", ticket);
+	
+	db.Query(SQL_OnCloseTicketUpdate, Update_Query, pData);
+}
+
+public void SQL_OnCloseTicketUpdate(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	int isOwn = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to close ticket: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Error while closing the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return;
+	}
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "{grey}Closed ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "%s", Divider_Success);
+	
+	char Client_Name[MAX_NAME_LENGTH];
+	ReadPackString(pData, Client_Name, sizeof Client_Name);
+	
+	if (!isOwn)
+		Ticketron_AddNotification(ticket, false, "%s closed your ticket", Client_Name);
+	else
+		Ticketron_AddNotification(ticket, true, "User closed the ticket");
 }
 
 public Action PollingTimer(Handle timer)
