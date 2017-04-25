@@ -980,6 +980,7 @@ public Action CloseTicketCmd(int client, int args)
 	char buffer[16], Select_Query[256], Client_SteamID64[32];
 	int ticket;
 	
+	GetCmdArg(1, buffer, sizeof buffer);
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	ticket = StringToInt(buffer);
 	
