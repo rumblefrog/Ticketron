@@ -41,10 +41,10 @@ SOFTWARE.
 #define Divider_Left "▬▬▬▬ι══════════════ﺤ(̲̅ ̲̅(̲̅"
 #define Divider_Right ") ̲̅)-══════════════ι▬▬▬▬▬";
 
-#define Divider_Success "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Success) ̲̅){grey}-══════════════ι▬▬▬▬▬"
-#define Divider_Failure "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Failure) ̲̅){grey}-══════════════ι▬▬▬▬▬"
+#define Divider_Success "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅{dodgerblue}SUCCESS{lightseagreen}) ̲̅){grey}-══════════════ι▬▬▬▬▬"
+#define Divider_Failure "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅{dodgerblue}FAILURE{lightseagreen}) ̲̅){grey}-══════════════ι▬▬▬▬▬"
 #define Divider_Pagination "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅   %i{grey}/{lightseagreen}%i   ) ̲̅){grey}-══════════════ι▬▬▬▬▬"
-#define Divider_Text "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅   {gold}%s   {lightseagreen}) ̲̅){grey}-══════════════ι▬▬▬▬▬"
+#define Divider_Text "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅{gold}%s{lightseagreen}) ̲̅){grey}-══════════════ι▬▬▬▬▬"
 
 #define PageLimit 5
 
@@ -134,6 +134,7 @@ public void OnPluginStart()
 	RegAdminCmd("sm_replyticket", ReplyTicketCmd, 0, "Reply to ticket");
 	RegAdminCmd("sm_closeticket", CloseTicketCmd, 0, "Close a ticket");
 	RegAdminCmd("sm_tagplayer", TagPlayerCmd, 0, "Tag a player in a ticket");
+	RegAdminCmd("sm_myqueue", MyQueueCmd, ADMFLAG_GENERIC, "View the tickets I handle");
 	
 	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
 	RegAdminCmd("ticketron_admin", VoidCmd, ADMFLAG_GENERIC, "Ticketron Admin Permission Check");
@@ -627,9 +628,7 @@ public void SQL_OnTicketQueueCount(Database db, DBResultSet results, const char[
 		
 		return;
 	}
-	
-	ResetPack(pData);
-	
+		
 	WritePackCell(pData, count);
 	
 	int offset = (page != 1 && page != 0) ? ((page - 1) * PageLimit) : 0;
@@ -1178,6 +1177,7 @@ public void SQL_OnTagPlayerSelect(Database db, DBResultSet results, const char[]
 	IntToString(view_as<int>(pData), Pack_String, sizeof Pack_String);
 	
 	Menu menu = new Menu(TagPlayerMenu);
+	
 	menu.SetTitle("Ticket %i: Tag Player", ticket);
 	
 	for (int i = 1; i <= MaxClients; i++)
@@ -1197,7 +1197,7 @@ public void SQL_OnTagPlayerSelect(Database db, DBResultSet results, const char[]
 }
 
 public int TagPlayerMenu(Menu menu, MenuAction action, int param1, int param2)
-{
+{	
 	int pDataPos = (menu.ItemCount - 1);
 	char pDataPosChar[16];
 	
@@ -1287,6 +1287,133 @@ public void SQL_OnTagPlayerUpdate(Database db, DBResultSet results, const char[]
 		Ticketron_AddNotification(ticket, false, "%s tagged a player to your ticket", Client_Name);
 	else
 		Ticketron_AddNotification(ticket, true, "User tagged a player to the ticket");
+}
+
+public Action MyQueueCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	
+	char Select_Query[256], buffer[16], Client_SteamID64[32];
+	
+	GetCmdArg(1, buffer, sizeof buffer);
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	
+	int page = StringToInt(buffer);
+	
+	if (page < 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Page number cannot be negative");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return Plugin_Handled;
+	}
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT count(*) as count FROM `Ticketron_Tickets` WHERE `handled` = 0 AND `closed` = 0 AND `handler_steamid` = '%s'", Client_SteamID64);
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, page);
+	
+	hDB.Query(SQL_OnTicketQueueCount, Select_Query, pData);
+	
+	return Plugin_Handled;
+}
+
+public void SQL_OnMyQueueCount(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int page = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return;
+		
+	}
+	
+	results.FetchRow();
+	int count = results.FetchInt(0);
+	
+	if (count == 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
+		CReplyToCommand(client, "%s", Divider_Success);
+		
+		return;
+	}
+	
+	int offset = (page != 1 && page != 0) ? ((page - 1) * PageLimit) : 0;
+	
+	char Select_Query[256], Client_SteamID64[32];
+	
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+		
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `handled` = 0 AND `closed` = 0 AND `handler_steamid` = '%s' ORDER BY `id`, `reporter_seed` DESC LIMIT %i OFFSET %i", Client_SteamID64, PageLimit, offset);
+	
+	WritePackCell(pData, count);
+	
+	db.Query(SQL_OnMyQueueSelect, Select_Query, pData);
+}
+
+public void SQL_OnMyQueueSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int page = ReadPackCell(pData);
+	int count = ReadPackCell(pData);
+	int totalpages = RoundToCeil(view_as<float>(count / PageLimit));
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to select tickets: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Error while querying. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return;
+		
+	} else if (results.RowCount == 0)
+	{
+		CReplyToCommand(client, "%s", Divider_Success);
+		CReplyToCommand(client, "{grey}Could not find any tickets :P.");
+		CReplyToCommand(client, "%s", Divider_Success);
+		
+		return;
+	}
+	
+	int ticketid;
+	char timestamp[64];
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	
+	while (results.FetchRow())
+	{
+		ticketid = results.FetchInt(0);
+		results.FetchString(16, timestamp, sizeof timestamp);
+		
+		CReplyToCommand(client, "{grey}#{lightseagreen}%i {grey}- {lightseagreen}%s", ticketid, timestamp);
+	}
+		
+	CReplyToCommand(client, Divider_Pagination, page+1, totalpages+1);
 }
 
 public Action PollingTimer(Handle timer)
