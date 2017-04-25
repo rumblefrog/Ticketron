@@ -332,7 +332,7 @@ public void SQL_OnTicketHandleUpdate(Database db, DBResultSet results, const cha
 	
 	GetClientName(client, Client_Name, sizeof Client_Name);
 	
-	Ticketron_AddNotification(ticket, false, "%s Is now handling your ticket", Client_Name);
+	Ticketron_AddNotification(ticket, false, "%s is now handling your ticket", Client_Name);
 }
 
 public Action UnhandleTicketCmd(int client, int args)
@@ -423,7 +423,7 @@ public void SQL_OnTicketUnhandleUpdate(Database db, DBResultSet results, const c
 	
 	GetClientName(client, Client_Name, sizeof Client_Name);
 	
-	Ticketron_AddNotification(ticket, false, "%s Unhandled your ticket", Client_Name);
+	Ticketron_AddNotification(ticket, false, "%s unhandled your ticket", Client_Name);
 }
 
 public Action MyTicketsCmd(int client, int args)
