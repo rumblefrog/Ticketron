@@ -1131,6 +1131,10 @@ public void SQL_OnPollingTimerSelect(Database db, DBResultSet results, const cha
 					
 						Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Notifications` SET `internal_handled` = 1 WHERE `id` = '%i'", NID);
 						db.Query(SQL_OnPollingTimerUpdate, UpdateQuery);
+					} else if (!Handler_SteamID64[0])
+					{
+						Format(UpdateQuery, sizeof UpdateQuery, "UPDATE `Ticketron_Notifications` SET `internal_handled` = 1 WHERE `id` = '%i'", NID);
+						db.Query(SQL_OnPollingTimerUpdate, UpdateQuery);
 					}
 				} else
 				{
