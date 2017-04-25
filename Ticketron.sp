@@ -44,6 +44,7 @@ SOFTWARE.
 #define Divider_Success "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Success) ̲̅){grey}-══════════════ι▬▬▬▬▬"
 #define Divider_Failure "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅Failure) ̲̅){grey}-══════════════ι▬▬▬▬▬"
 #define Divider_Pagination "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅   %i{grey}/{lightseagreen}%i   ) ̲̅){grey}-══════════════ι▬▬▬▬▬"
+#define Divider_Text "{grey}▬▬▬▬▬ι══════════════ﺤ{lightseagreen}(̲̅ ̲̅(̲̅   {gold}%s   {lightseagreen}) ̲̅){grey}-══════════════ι▬▬▬▬▬"
 
 #define PageLimit 5
 
@@ -132,6 +133,7 @@ public void OnPluginStart()
 	RegAdminCmd("sm_viewticket", ViewTicketCmd, 0, "View ticket details");
 	RegAdminCmd("sm_replyticket", ReplyTicketCmd, 0, "Reply to ticket");
 	RegAdminCmd("sm_closeticket", CloseTicketCmd, 0, "Close a ticket");
+	RegAdminCmd("sm_tagplayer", TagPlayerCmd, 0, "Tag a player in a ticket");
 	
 	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
 	RegAdminCmd("ticketron_admin", VoidCmd, ADMFLAG_GENERIC, "Ticketron Admin Permission Check");
@@ -754,6 +756,7 @@ public void SQL_OnViewTicket(Database db, DBResultSet results, const char[] erro
 	char hostname[64], breed[32], target_name[32], reporter_name[32], reporter_steamid[32], reason[2048], handler_name[32], handler_steamid[32], timestamp[32], Select_Query[512];
 	
 	results.FetchRow();
+	int closed = results.FetchInt(19);
 	results.FetchString(2, hostname, sizeof hostname);
 	results.FetchString(3, breed, sizeof breed);
 	results.FetchString(4, target_name, sizeof target_name);
@@ -764,6 +767,7 @@ public void SQL_OnViewTicket(Database db, DBResultSet results, const char[] erro
 	results.FetchString(13, handler_steamid, sizeof handler_steamid);
 	results.FetchString(16, timestamp, sizeof timestamp);
 	
+	WritePackCell(pData, closed);
 	WritePackString(pData, hostname);
 	WritePackString(pData, breed);
 	WritePackString(pData, target_name);
@@ -787,7 +791,8 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 	
 	ReplySource CmdOrigin = ReadPackCell(pData);
 	int client = ReadPackCell(pData);
-	int ticket = ReadPackCell(pData);	
+	int ticket = ReadPackCell(pData);
+	int closed = ReadPackCell(pData);
 	ReadPackString(pData, hostname, sizeof hostname);
 	ReadPackString(pData, breed, sizeof breed);
 	ReadPackString(pData, target_name, sizeof target_name);
@@ -834,7 +839,10 @@ public void SQL_OnViewTicketReplies(Database db, DBResultSet results, const char
 			CReplyToCommand(client, "{crimson}%s {white}: {gray}%s", Replier_Name, Message);
 	}
 	
-	CReplyToCommand(client, "%s", Divider_Success);
+	if (closed)
+		CReplyToCommand(client, Divider_Text, "CLOSED");
+	else
+		CReplyToCommand(client, Divider_Text, "OPEN");
 }
 
 public Action ReplyTicketCmd(int client, int args)
@@ -1092,6 +1100,195 @@ public void SQL_OnCloseTicketUpdate(Database db, DBResultSet results, const char
 		Ticketron_AddNotification(ticket, true, "User closed the ticket");
 }
 
+public Action TagPlayerCmd(int client, int args)
+{
+	ReplySource CmdOrigin = GetCmdReplySource();
+	char buffer[16], Select_Query[256], Client_SteamID64[32];
+	int ticket;
+	
+	GetCmdArg(1, buffer, sizeof buffer);
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	ticket = StringToInt(buffer);
+	
+	if (ticket < 1)
+	{
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return Plugin_Handled;
+	}
+	
+	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `id` = '%i' AND `closed` = 0 AND (`reporter_steamid` = '%s' OR `handler_steamid` = '%s')", ticket, Client_SteamID64, Client_SteamID64);
+	
+	DataPack pData = CreateDataPack();
+	
+	WritePackCell(pData, CmdOrigin);
+	WritePackCell(pData, client);
+	WritePackCell(pData, ticket);
+	
+	hDB.Query(SQL_OnTagPlayerSelect, Select_Query, pData);
+	
+	return Plugin_Handled;
+}
+
+public void SQL_OnTagPlayerSelect(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to tag ticket: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Error while tagging the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return;
+	}
+	
+	if (results.RowCount == 0)
+	{		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Insufficient permission or the ticket does not exist.");
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return;
+	}
+	
+	char Client_Name[MAX_NAME_LENGTH], Client_SteamID64[32], Search_ID[32], Pack_String[16], Menu_Client_Name[MAX_NAME_LENGTH], Menu_Client_ID[16];
+	
+	results.FetchRow();
+	results.FetchString(8, Search_ID, sizeof Search_ID);
+	
+	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+	GetClientName(client, Client_Name, sizeof Client_Name);
+	
+	int isOwn = (StrEqual(Search_ID, Client_SteamID64)) ? 1 : 0;
+	WritePackCell(pData, isOwn);
+	
+	WritePackString(pData, Client_Name);
+	
+	IntToString(view_as<int>(pData), Pack_String, sizeof Pack_String);
+	
+	Menu menu = new Menu(TagPlayerMenu);
+	menu.SetTitle("Ticket %i: Tag Player", ticket);
+	
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (Client_IsValid(i))
+		{
+			IntToString(i, Menu_Client_ID, sizeof Menu_Client_ID);
+			GetClientName(i, Menu_Client_Name, sizeof Menu_Client_Name);
+			
+			menu.AddItem(Menu_Client_ID, Menu_Client_Name);
+		}
+	}
+	
+	menu.AddItem("Void", "No Target");
+	menu.AddItem(Pack_String, "", ITEMDRAW_IGNORE);
+	menu.Display(client, MENU_TIME_FOREVER);
+}
+
+public int TagPlayerMenu(Menu menu, MenuAction action, int param1, int param2)
+{
+	int pDataPos = (menu.ItemCount - 1);
+	char pDataPosChar[16];
+	
+	menu.GetItem(pDataPos, pDataPosChar, sizeof pDataPosChar);
+	
+	DataPack pData = view_as<DataPack>(StringToInt(pDataPosChar));
+	
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	switch(action)
+	{
+		case MenuAction_Select:
+		{
+			if ((menu.ItemCount - 2) == param2)
+			{
+				char Update_Query[512];
+				
+				Format(Update_Query, sizeof Update_Query, "UPDATE `Ticketron_Tickets` SET `target_name` = null, `target_steamid` = null, `target_ip` = null WHERE `id` = '%i'", ticket);
+			
+				hDB.Query(SQL_OnTagPlayerUpdate, Update_Query, pData);
+			} else
+			{
+				int target_id;
+				char Update_Query[512], Client_Name[MAX_NAME_LENGTH], Client_SteamID64[32], Client_IP[45], Menu_Buffer[16], Escaped_Name[128];
+			
+				menu.GetItem(param2, Menu_Buffer, sizeof Menu_Buffer);
+				target_id = StringToInt(Menu_Buffer);
+			
+				GetClientName(target_id, Client_Name, sizeof Client_Name);
+				GetClientAuthId(target_id, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
+				GetClientIP(target_id, Client_IP, sizeof Client_IP);
+			
+				hDB.Escape(Client_Name, Escaped_Name, sizeof Escaped_Name);
+			
+				Format(Update_Query, sizeof Update_Query, "UPDATE `Ticketron_Tickets` SET `target_name` = '%s', `target_steamid` = '%s', `target_ip` = '%s' WHERE `id` = '%i'", Escaped_Name, Client_SteamID64, Client_IP, ticket);
+			
+				hDB.Query(SQL_OnTagPlayerUpdate, Update_Query, pData);
+			}
+		}
+		case MenuAction_Cancel:
+		{
+			CReplyToCommand(client, "%s", Divider_Failure);
+			CReplyToCommand(client, "{grey}Tagging player was canceled.");
+			CReplyToCommand(client, "%s", Divider_Failure);
+		}
+	}
+	
+	delete menu;
+}
+
+public void SQL_OnTagPlayerUpdate(Database db, DBResultSet results, const char[] error, any pData)
+{
+	ResetPack(pData);
+	
+	ReplySource CmdOrigin = ReadPackCell(pData);
+	int client = ReadPackCell(pData);
+	int ticket = ReadPackCell(pData);
+	int isOwn = ReadPackCell(pData);
+	
+	SetCmdReplySource(CmdOrigin);
+	
+	if (results == null)
+	{
+		int rid = EL_LogPlugin(LOG_ERROR, "Unable to tag a player to the ticket: %s", error);
+		
+		CReplyToCommand(client, "%s", Divider_Failure);
+		CReplyToCommand(client, "{grey}Error while tagging a player to the ticket. RID: {chartreuse}%i{grey}.", rid);
+		CReplyToCommand(client, "%s", Divider_Failure);
+		
+		return;
+	}
+	
+	CReplyToCommand(client, "%s", Divider_Success);
+	CReplyToCommand(client, "{grey}Tagged player to ticket ID: {chartreuse}%i{grey}.", ticket);
+	CReplyToCommand(client, "%s", Divider_Success);
+	
+	char Client_Name[MAX_NAME_LENGTH];
+	ReadPackString(pData, Client_Name, sizeof Client_Name);
+	
+	if (!isOwn)
+		Ticketron_AddNotification(ticket, false, "%s tagged a player to your ticket", Client_Name);
+	else
+		Ticketron_AddNotification(ticket, true, "User tagged a player to the ticket");
+}
+
 public Action PollingTimer(Handle timer)
 {
 	char SelectQuery[512];
@@ -1297,19 +1494,17 @@ public int GetUserFromAuthID(int authid)
     return -1;
 }
 
-stock bool Client_IsValid(int client, bool checkConnected=true)
+stock bool Client_IsValid(int iClient, bool bAlive = false)
 {
-	if (client > 4096) {
-		client = EntRefToEntIndex(client);
+	if (iClient >= 1 &&
+	iClient <= MaxClients &&
+	IsClientConnected(iClient) &&
+	IsClientInGame(iClient) &&
+	!IsFakeClient(iClient) &&
+	(bAlive == false || IsPlayerAlive(iClient)))
+	{
+		return true;
 	}
 
-	if (client < 1 || client > MaxClients) {
-		return false;
-	}
-
-	if (checkConnected && !IsClientConnected(client)) {
-		return false;
-	}
-
-	return true;
+	return false;
 }
