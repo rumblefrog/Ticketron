@@ -7,10 +7,10 @@ matrix:
     fast_finish: true
     
 before_install:
-    - apt-get update
-    - apt-get install gcc-multilib
-    - apt-get install lynx
-    - apt-get install lib32stdc++6
+    - sudo apt-get update
+    - sudo apt-get install gcc-multilib
+    - sudo apt-get install lynx
+    - sudo apt-get install lib32stdc++6
 
 before_script:
     - SMLATEST=`curl "https://www.sourcemod.net/smdrop/$SMVERSION/sourcemod-latest-linux"`
