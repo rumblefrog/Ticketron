@@ -11,16 +11,16 @@ A fully-featured ticket support system
 
 # Commands
 
-- !TicketQueue Page# (Returns a list of unhandled & open tickets)
-- !Handle #Ticket (Handles or self-assign a ticket)
-- !Unhandle #Ticket (Unhandle or unself-assign a ticket)
-- !CloseTicket #Ticket (Closes a ticket that you handle)
-- !ReplyTicket #Ticket Message (Replies to a ticket that you handle)
-- !TagPlayer #Ticket (Tag a target as part of of the ticket. Ex: A Hacker/Offender)
-- !MyTickets Page# (Returns a list of tickets you created)
-- !ViewTicket #Ticket (View details about a specific ticket)
-- !Ticket Message (Creates a ticket with message)
-- !MyQueue Page# (Returns a list of tickets being handled by you & still open)
+- **!TicketQueue Page#** (Returns a list of unhandled & open tickets)
+- **!Handle #Ticket** (Handles or self-assign a ticket)
+- **!Unhandle #Ticket** (Unhandle or unself-assign a ticket)
+- **!CloseTicket #Ticket** (Closes a ticket that you handle)
+- **!ReplyTicket #Ticket** Message (Replies to a ticket that you handle)
+- **!TagPlayer #Ticket** (Tag a target as part of of the ticket. Ex: A Hacker/Offender)
+- **!MyTickets Page#** (Returns a list of tickets you created)
+- **!ViewTicket #Ticket** (View details about a specific ticket)
+- **!Ticket Message** (Creates a ticket with message)
+- **!MyQueue Page#** (Returns a list of tickets being handled by you & still open)
 
 # Installation
 
