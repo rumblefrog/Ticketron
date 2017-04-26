@@ -15,7 +15,7 @@ A fully-featured ticket support system
 - **!Handle #Ticket** (Handles or self-assign a ticket)
 - **!Unhandle #Ticket** (Unhandle or unself-assign a ticket)
 - **!CloseTicket #Ticket** (Closes a ticket that you handle)
-- **!ReplyTicket #Ticket** Message (Replies to a ticket that you handle)
+- **!ReplyTicket #Ticket Message** (Replies to a ticket that you handle)
 - **!TagPlayer #Ticket** (Tag a target as part of of the ticket. Ex: A Hacker/Offender)
 - **!MyTickets Page#** (Returns a list of tickets you created)
 - **!ViewTicket #Ticket** (View details about a specific ticket)
