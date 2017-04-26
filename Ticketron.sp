@@ -97,7 +97,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 			
 	hDB.Query(OnTableCreate, TicketsCreateSQL, _, DBPrio_High);
 	hDB.Query(OnTableCreate, RepliesCreateSQL);
-	hDB.Query( OnTableCreate, NotificationsCreateSQL);
+	hDB.Query(OnTableCreate, NotificationsCreateSQL);
 	
 	RegPluginLibrary("Ticketron");
 
@@ -128,13 +128,13 @@ public void OnPluginStart()
 	RegAdminCmd("sm_ticket", CreateTicketCmd, 0, "Creates ticket");
 	RegAdminCmd("sm_handle", HandleTicketCmd, ADMFLAG_GENERIC, "Handles ticket");
 	RegAdminCmd("sm_unhandle", UnhandleTicketCmd, ADMFLAG_GENERIC, "Unhandles ticket");
-	RegAdminCmd("sm_mytickets", MyTicketsCmd, 0, "View my tickets");
+	RegAdminCmd("sm_mytickets", MyTicketsCmd, 0, "View your tickets");
 	RegAdminCmd("sm_ticketqueue", TicketQueueCmd, 0, "View unhandled tickets");
 	RegAdminCmd("sm_viewticket", ViewTicketCmd, 0, "View ticket details");
 	RegAdminCmd("sm_replyticket", ReplyTicketCmd, 0, "Reply to ticket");
 	RegAdminCmd("sm_closeticket", CloseTicketCmd, 0, "Close a ticket");
 	RegAdminCmd("sm_tagplayer", TagPlayerCmd, 0, "Tag a player in a ticket");
-	RegAdminCmd("sm_myqueue", MyQueueCmd, ADMFLAG_GENERIC, "View the tickets I handle");
+	RegAdminCmd("sm_myqueue", MyQueueCmd, ADMFLAG_GENERIC, "View the tickets you handle");
 	
 	RegAdminCmd("ticketron_donor", VoidCmd, ADMFLAG_RESERVATION, "Ticketron Donor Permission Check");
 	RegAdminCmd("ticketron_admin", VoidCmd, ADMFLAG_GENERIC, "Ticketron Admin Permission Check");
@@ -1249,9 +1249,9 @@ public int TagPlayerMenu(Menu menu, MenuAction action, int param1, int param2)
 			CReplyToCommand(client, "{grey}Tagging player was canceled.");
 			CReplyToCommand(client, "%s", Divider_Failure);
 		}
+		case MenuAction_End:
+			delete menu;
 	}
-	
-	delete menu;
 }
 
 public void SQL_OnTagPlayerUpdate(Database db, DBResultSet results, const char[] error, any pData)
