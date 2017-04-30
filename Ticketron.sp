@@ -1635,3 +1635,16 @@ stock bool Client_IsValid(int iClient, bool bAlive = false)
 
 	return false;
 }
+
+stock bool IsInteger(const char[] buffer)
+{
+    int len = strlen(buffer);
+    
+    for (int i = 0; i < len; i++)
+    {
+        if (!IsCharNumeric(buffer[i]) )
+            return false;
+    }
+
+    return true;    
+}
