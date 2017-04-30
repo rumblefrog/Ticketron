@@ -697,7 +697,7 @@ public Action ViewTicketCmd(int client, int args)
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	ticket = StringToInt(buffer);
 	
-	if (ticket < 1)
+	if (IsInteger(buffer) && ticket < 1)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
@@ -861,7 +861,7 @@ public Action ReplyTicketCmd(int client, int args)
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	ticket = StringToInt(buffer);
 	
-	if (ticket < 1)
+	if (IsInteger(buffer) && ticket < 1)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
@@ -994,7 +994,7 @@ public Action CloseTicketCmd(int client, int args)
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	ticket = StringToInt(buffer);
 	
-	if (ticket < 1)
+	if (IsInteger(buffer) && ticket < 1)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
@@ -1109,7 +1109,7 @@ public Action TagPlayerCmd(int client, int args)
 	GetClientAuthId(client, AuthId_SteamID64, Client_SteamID64, sizeof Client_SteamID64);
 	ticket = StringToInt(buffer);
 	
-	if (ticket < 1)
+	if (IsInteger(buffer) && ticket < 1)
 	{
 		CReplyToCommand(client, "%s", Divider_Failure);
 		CReplyToCommand(client, "{grey}Ticket number must be greater or equal to 1");
@@ -1634,4 +1634,17 @@ stock bool Client_IsValid(int iClient, bool bAlive = false)
 	}
 
 	return false;
+}
+
+stock bool IsInteger(const char[] buffer)
+{
+    int len = strlen(buffer);
+    
+    for (int i = 0; i < len; i++)
+    {
+        if (!IsCharNumeric(buffer[i]) )
+            return false;
+    }
+
+    return true;    
 }
