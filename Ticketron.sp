@@ -27,7 +27,7 @@ SOFTWARE.
 #define DEBUG
 
 #define PLUGIN_AUTHOR "Fishy"
-#define PLUGIN_VERSION "1.0.0"
+#define PLUGIN_VERSION "1.0.2"
 
 #include <sourcemod>
 #include <morecolors_store>
@@ -71,6 +71,7 @@ int g_cGroupID32;
 ConVar cPollingRate;
 ConVar cBreed;
 ConVar cGroupID32;
+ConVar cHostname;
 
 public Plugin myinfo = 
 {
@@ -147,15 +148,18 @@ public void OnPluginStart()
 	
 	GetConVarString(FindConVar("hostname"), g_cHostname, sizeof g_cHostname);
 	
+	cHostname = FindConVar("hostname");
+	cHostname.GetString(g_cHostname, sizeof g_cHostname);
+	cHostname.AddChangeHook(OnConvarChanged);
 	
 	g_fPollingRate = cPollingRate.FloatValue;
-	HookConVarChange(cPollingRate, OnConvarChanged);
+	cPollingRate.AddChangeHook(OnConvarChanged);
 	
 	cBreed.GetString(g_cBreed, sizeof g_cBreed);
-	HookConVarChange(cBreed, OnConvarChanged);
+	cBreed.AddChangeHook(OnConvarChanged);
 	
 	g_cGroupID32 = cGroupID32.IntValue;
-	HookConVarChange(cGroupID32, OnConvarChanged);
+	cGroupID32.AddChangeHook(OnConvarChanged);
 	
 	g_hPollingTimer = CreateTimer(g_fPollingRate, PollingTimer, _, TIMER_REPEAT);
 }
@@ -1517,14 +1521,19 @@ public void SQL_OnNativeAddNotification(Database db, DBResultSet results, const 
 
 public void OnConvarChanged(ConVar convar, const char[] oldValue, const char[] newValue)
 {
+	if (convar == cHostname)
+		cHostname.GetString(g_cHostname, sizeof g_cHostname);
+
 	if (convar == cPollingRate)
 	{
 		g_fPollingRate = cPollingRate.FloatValue;
 		KillTimer(g_hPollingTimer);
 		g_hPollingTimer = CreateTimer(g_fPollingRate, PollingTimer, _, TIMER_REPEAT);
 	}
+	
 	if (convar == cBreed)
 		cBreed.GetString(g_cBreed, sizeof g_cBreed);
+		
 	if (convar == cGroupID32)
 		g_cGroupID32 = cGroupID32.IntValue;
 }
