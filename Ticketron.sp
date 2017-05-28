@@ -56,7 +56,6 @@ Database hDB;
 char g_cIP[64];
 char g_cHostname[128];
 char g_cBreed[32];
-char g_cGroupID32[32];
 
 bool InGroup[MAXPLAYERS + 1];
 
@@ -66,6 +65,7 @@ Handle g_hPollingTimer;
 
 int IID = -1;
 int g_iTimeOut;
+int g_cGroupID32;
 
 //<!--- ConVars --->
 ConVar cPollingRate;
@@ -89,7 +89,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 		return APLRes_Failure;
 	
 	//Tickets table must be created before others due to foreign key references	
-	char TicketsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Tickets` ( `id` INT NOT NULL AUTO_INCREMENT , `host` VARBINARY(16) NOT NULL , `hostname` VARCHAR(64) NOT NULL , `breed` VARCHAR(32) NOT NULL , `target_name` VARCHAR(32) NULL DEFAULT NULL , `target_steamid` VARCHAR(32) NULL DEFAULT NULL , `target_ip` VARBINARY(16) NULL DEFAULT NULL, `reporter_name` VARCHAR(32) NOT NULL , `reporter_steamid` VARCHAR(32) NOT NULL , `reporter_ip` VARBINARY(16) NOT NULL, `reporter_seed` TINYINT(1) NOT NULL, `reason` TEXT NOT NULL , `handler_name` VARCHAR(32) NULL DEFAULT NULL , `handler_steamid` VARCHAR(32) NULL DEFAULT NULL , `handled` TINYINT(1) NOT NULL DEFAULT '0' , `data` TEXT NULL DEFAULT NULL, `time_reported` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , `time_handled` TIMESTAMP NULL DEFAULT NULL , `time_closed` TIMESTAMP NULL DEFAULT NULL , `closed` TINYINT(1) NOT NULL DEFAULT '0', `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , PRIMARY KEY (`id`), INDEX (`breed`), INDEX (`handler_steamid`), INDEX (`handled`), INDEX (`target_steamid`), INDEX (`target_ip`), INDEX (`reporter_steamid`), INDEX (`reporter_ip`), INDEX(`reporter_seed`), INDEX (`closed`), INDEX (`external_handled`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
+	char TicketsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Tickets` ( `id` INT NOT NULL AUTO_INCREMENT , `host` VARBINARY(21) NOT NULL , `hostname` VARCHAR(64) NOT NULL , `breed` VARCHAR(32) NOT NULL , `target_name` VARCHAR(32) NULL DEFAULT NULL , `target_steamid` VARCHAR(32) NULL DEFAULT NULL , `target_ip` VARBINARY(16) NULL DEFAULT NULL, `reporter_name` VARCHAR(32) NOT NULL , `reporter_steamid` VARCHAR(32) NOT NULL , `reporter_ip` VARBINARY(16) NOT NULL, `reporter_seed` TINYINT(1) NOT NULL, `reason` TEXT NOT NULL , `handler_name` VARCHAR(32) NULL DEFAULT NULL , `handler_steamid` VARCHAR(32) NULL DEFAULT NULL , `handled` TINYINT(1) NOT NULL DEFAULT '0' , `data` TEXT NULL DEFAULT NULL, `time_reported` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , `time_handled` TIMESTAMP NULL DEFAULT NULL , `time_closed` TIMESTAMP NULL DEFAULT NULL , `closed` TINYINT(1) NOT NULL DEFAULT '0', `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , PRIMARY KEY (`id`), INDEX (`breed`), INDEX (`handler_steamid`), INDEX (`handled`), INDEX (`target_steamid`), INDEX (`target_ip`), INDEX (`reporter_steamid`), INDEX (`reporter_ip`), INDEX(`reporter_seed`), INDEX (`closed`), INDEX (`external_handled`)) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	char RepliesCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Replies` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `replier_name` VARCHAR(32) NOT NULL , `replier_steamid` VARCHAR(32) NOT NULL , `message` LONGTEXT NOT NULL , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`replier_steamid`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	char NotificationsCreateSQL[] = "CREATE TABLE IF NOT EXISTS `Ticketron_Notifications` ( `id` INT NOT NULL AUTO_INCREMENT , `ticket_id` INT NOT NULL , `message` TEXT NOT NULL , `receiver` TINYINT(1) NOT NULL, `internal_handled` TINYINT(1) NOT NULL DEFAULT '0' , `external_handled` TINYINT(1) NOT NULL DEFAULT '0' , `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , PRIMARY KEY (`id`), INDEX (`ticket_id`), INDEX (`receiver`), INDEX (`internal_handled`), INDEX (`external_handled`), FOREIGN KEY (`ticket_id`) REFERENCES `Ticketron_Tickets` (`id` )) ENGINE = InnoDB CHARSET=utf8mb4 COLLATE utf8mb4_general_ci";
 	
@@ -154,7 +154,7 @@ public void OnPluginStart()
 	cBreed.GetString(g_cBreed, sizeof g_cBreed);
 	HookConVarChange(cBreed, OnConvarChanged);
 	
-	cGroupID32.GetString(g_cGroupID32, sizeof g_cGroupID32);
+	g_cGroupID32 = cGroupID32.IntValue;
 	HookConVarChange(cGroupID32, OnConvarChanged);
 	
 	g_hPollingTimer = CreateTimer(g_fPollingRate, PollingTimer, _, TIMER_REPEAT);
@@ -1526,7 +1526,7 @@ public void OnConvarChanged(ConVar convar, const char[] oldValue, const char[] n
 	if (convar == cBreed)
 		cBreed.GetString(g_cBreed, sizeof g_cBreed);
 	if (convar == cGroupID32)
-		cGroupID32.GetString(g_cGroupID32, sizeof g_cGroupID32);
+		g_cGroupID32 = cGroupID32.IntValue;
 }
 
 public int SteamWorks_SteamServersConnected()
@@ -1538,16 +1538,14 @@ public int SteamWorks_SteamServersConnected()
 
 public void OnClientPostAdminCheck(int iClient)
 {
-	if (!StrEqual(g_cGroupID32, "0"))
-	{
-		SteamWorks_GetUserGroupStatus(iClient, StringToInt(g_cGroupID32));
-	}
+	if (g_cGroupID32 != 0)
+		SteamWorks_GetUserGroupStatus(iClient, g_cGroupID32);
 }
 
 public int SteamWorks_OnClientGroupStatus(int authid, int groupid, bool isMember, bool isOfficer)
 {
 	
-	if (groupid != StringToInt(g_cGroupID32))
+	if (groupid != g_cGroupID32)
 		return;
 	
 	int iClient = GetUserFromAuthID(authid);	
@@ -1569,7 +1567,7 @@ public int SteamWorks_OnClientGroupStatus(int authid, int groupid, bool isMember
 public int Steam_GroupStatusResult(int client, int groupAccountID, bool groupMember, bool groupOfficer)
 {
 	
-	if (groupAccountID != StringToInt(g_cGroupID32))
+	if (groupAccountID != g_cGroupID32)
 		return;	
 	
 	if (client == -1)
