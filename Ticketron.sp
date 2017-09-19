@@ -34,6 +34,7 @@ SOFTWARE.
 #include <EventLogs>
 #include <Ticketron>
 #include <SteamWorks>
+#undef REQUIRE_EXTENSIONS
 #include <steamtools>
 
 #pragma newdecls required
@@ -130,7 +131,7 @@ public void OnPluginStart()
 	RegAdminCmd("sm_handle", HandleTicketCmd, ADMFLAG_GENERIC, "Handles ticket");
 	RegAdminCmd("sm_unhandle", UnhandleTicketCmd, ADMFLAG_GENERIC, "Unhandles ticket");
 	RegAdminCmd("sm_mytickets", MyTicketsCmd, 0, "View your tickets");
-	RegAdminCmd("sm_ticketqueue", TicketQueueCmd, 0, "View unhandled tickets");
+	RegAdminCmd("sm_ticketqueue", TicketQueueCmd, ADMFLAG_GENERIC, "View unhandled tickets");
 	RegAdminCmd("sm_viewticket", ViewTicketCmd, 0, "View ticket details");
 	RegAdminCmd("sm_replyticket", ReplyTicketCmd, 0, "Reply to ticket");
 	RegAdminCmd("sm_closeticket", CloseTicketCmd, 0, "Close a ticket");
@@ -632,26 +633,31 @@ public void SQL_OnTicketQueueCount(Database db, DBResultSet results, const char[
 		
 		return;
 	}
-		
-	WritePackCell(pData, count);
 	
+	DataPack nPack = new DataPack();
+	
+	nPack.WriteCell(CmdOrigin);
+	nPack.WriteCell(client);
+	nPack.WriteCell(page);
+	nPack.WriteCell(count);
+		
 	int offset = (page != 1 && page != 0) ? ((page - 1) * PageLimit) : 0;
 	
 	char Select_Query[256];
 		
 	Format(Select_Query, sizeof Select_Query, "SELECT * FROM `Ticketron_Tickets` WHERE `handled` = 0 AND `closed` = 0 ORDER BY `id`, `reporter_seed` DESC LIMIT %i OFFSET %i", PageLimit, offset);
 	
-	db.Query(SQL_OnTicketQueueSelect, Select_Query, pData);
+	db.Query(SQL_OnTicketQueueSelect, Select_Query, nPack);
 }
 
-public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char[] error, any pData)
+public void SQL_OnTicketQueueSelect(Database db, DBResultSet results, const char[] error, DataPack nPack)
 {
-	ResetPack(pData);
+	nPack.Reset();
 	
-	ReplySource CmdOrigin = ReadPackCell(pData);
-	int client = ReadPackCell(pData);
-	int page = ReadPackCell(pData);
-	int count = ReadPackCell(pData);
+	ReplySource CmdOrigin = nPack.ReadCell();
+	int client = nPack.ReadCell();
+	int page = nPack.ReadCell();
+	int count = nPack.ReadCell();
 	int totalpages = RoundToCeil(view_as<float>(count / PageLimit));
 	
 	SetCmdReplySource(CmdOrigin);
